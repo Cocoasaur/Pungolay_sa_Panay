@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Machine-local runtime state (settings, calibration, save slots)
+saves/
+
+# Downloaded / generated assets (recreated by tools/setup_assets.py)
+assets/models/
+assets/fonts/
+assets/sounds/
+
+# Editors / OS
+*.swp
+.idea/
+.vscode/
