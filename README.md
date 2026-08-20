@@ -12,8 +12,8 @@ estimation from your camera.
 
 ## Requirements
 
-- Linux (developed and tested on Python 3.11+ / 3.14); Windows support planned
-- A webcam (any UVC/V4L2 camera works)
+- Linux or Windows 10/11 (developed and tested on Python 3.11+ / 3.14)
+- A webcam (any UVC/V4L2 or DirectShow camera works)
 - ~60 MB of disk space for models and sounds
 
 ## Setup (Linux)
@@ -28,6 +28,45 @@ python main.py
 
 `scripts/setup.sh` runs all of the above in one go. Without the models the
 game still runs — in keyboard mode.
+
+## Setup (Windows)
+
+1. Install Python 3.11+ from [python.org](https://www.python.org/downloads/) —
+   tick **"Add python.exe to PATH"** during setup.
+2. Open a terminal (PowerShell or Command Prompt) and clone:
+
+   ```powershell
+   git clone https://github.com/Cocoasaur/Pungolay_sa_Panay.git
+   cd Pungolay_sa_Panay
+   ```
+
+3. Create and activate a virtual environment:
+
+   ```powershell
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+
+4. Install dependencies and fetch the pose models / fonts:
+
+   ```powershell
+   pip install -r requirements.txt
+   python tools\setup_assets.py
+   ```
+
+5. Run the game:
+
+   ```powershell
+   python main.py
+   ```
+
+`scripts\setup.bat` runs steps 3-5 in one go. Notes:
+
+- Keep `"pose_backend": "auto"` in `saves/settings.json` on Windows — the fast
+  3D MediaPipe backend is used there (the AMD/Mesa Linux quirk doesn't apply).
+- If the camera feed is black, allow camera access: Windows Settings →
+  Privacy & security → Camera → let desktop apps use the camera.
+- The first run needs an internet connection to download the pose models.
 
 ## How to play
 
@@ -86,10 +125,10 @@ The pose backend is chosen automatically at startup:
   and portable; used automatically when MediaPipe is unavailable or unstable.
 
 You can force a choice with `"pose_backend": "auto" | "mediapipe" | "cv2"` in
-`saves/settings.json`. Note: `saves/settings.json` in this repository is
-machine-local and currently pins `cv2` for the AMD dev box; on other Linux
-machines set it back to `auto` so MediaPipe is picked up when its self-test
-passes.
+`saves/settings.json`. Note: `saves/settings.json` is machine-local and is
+deliberately gitignored — the AMD dev box pins `cv2` for determinism; on
+Windows (and other Linux machines where the MediaPipe self-test passes) leave
+it at `auto` for the faster 3D backend.
 
 Distances are *relative* estimates used for game feel (fighter scale and the
 CLOSE / MEDIUM / FAR HUD readout) — they never claim real centimeters.
