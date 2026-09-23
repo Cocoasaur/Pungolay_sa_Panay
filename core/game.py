@@ -67,7 +67,7 @@ class Game:
         backend = self.settings.get("pose_backend", config.POSE_BACKEND)
         if backend in ("auto", "mediapipe", "cv2"):
             config.POSE_BACKEND = backend
-        self.camera = CameraManager(self.settings["camera_index"])
+        self.camera = CameraManager(self.pose_tracker)
         self.pose_tracker = PoseTracker()
         self._pose_init_started = False
         self.calibrator = Calibrator(
@@ -155,10 +155,9 @@ class Game:
 
     # ------------------------------------------------------------------
     # the camera -> TrackingData pipeline
-    # ------------------------------------------------------------------
-    def poll_camera(self, dt: float) -> TrackingData:
-        """Capture one frame, run pose + gestures, produce TrackingData."""
-        ok, frame = self.camera.read()
+    # ------------------------------------------------------------------    def poll_camera(self, dt: float) -> TrackingData:
+        """Fetch latest frame and pose from the background vision thread."""
+        ok, frame, pose = self.camera.read_latest()
         self.last_tracking = self.tracking
         if not ok:
             self._pose_gone = True
@@ -166,7 +165,6 @@ class Game:
             return self.tracking
 
         self.last_camera_frame = frame
-        pose = self.pose_tracker.process(frame) if self.pose_tracker.available else None
         self.last_pose = pose
 
         if pose is not None and pose.present and pose.body_confidence >= config.POSE_MIN_BODY_CONFIDENCE:
@@ -177,14 +175,11 @@ class Game:
             self.gestures.update(pose, dt, self.calibrator.existing)
             arms_active = self._arms_active(pose)
 
-            # Raised arms distort shoulder width, so use torso-only distance
-            # while punching/guarding.  Position itself is held below.
             ratio, level, scale = self.distance.update(
                 pose, dt, torso_only=arms_active)
             self._update_tracking_data(pose, ratio, level, scale, dt,
                                        freeze_depth=arms_active)
         else:
-            # tracking lost: freeze movement, clear gestures, never teleport
             self._pose_gone = True
             self._tracking_lost_time += dt
             empty_pose = PoseData(present=False)
@@ -197,9 +192,7 @@ class Game:
                 player_scale=1.0,
                 pose_present=False,
             )
-        return self.tracking
-
-    def _arms_active(self, pose) -> bool:
+        return self.tracking    def _arms_active(self, pose) -> bool:
         """Whether arm motion can corrupt shoulder-based measurements."""
         if (self.gestures.guard or self.gestures.left_punch or
                 self.gestures.right_punch):
@@ -580,7 +573,12 @@ class Game:
 
         pose = self.last_pose
         t = self.last_tracking        rows = [
-            f"FPS: {self.fps:.0f}",
+            f"GAME FPS: {self.fps:.0f}",
+            f"CAMERA FPS: {self.camera.fps_camera:.0f}",
+            f"POSE FPS: {self.camera.fps_pose:.0f}",
+            f"CAPTURE: {self.camera.time_capture:.1f} ms",
+            f"INFERENCE: {self.camera.time_inference:.1f} ms",
+            f"VISION LATENCY: {self.camera.time_total:.1f} ms",
             f"CAMERA: {self.camera.status}",
             f"POSE: {'OK' if (pose and pose.present) else 'NONE'}",
             f"BODY CONFIDENCE: {t.body_confidence:.2f}" if t else "BODY CONFIDENCE: -",
@@ -615,5 +613,9 @@ class Game:
         self.pose_tracker.close()
         pygame.quit()
         log.info("Game shut down cleanly.")
+
+
+
+
 
 

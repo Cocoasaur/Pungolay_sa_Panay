@@ -83,13 +83,12 @@ class GestureDetector:
         
         sw = 0.1
         if ls and rs:
-            sw = abs(ls[0] - rs[0]) + 0.001
-        
-        # -- GUARD --
+            sw = abs(ls[0] - rs[0]) + 0.001        # -- GUARD --
+        ref_len = calibration.arm_length if (calibration and hasattr(calibration, "arm_length")) else sw
         guard_now = False
         if nose and lw and rw and ls and rs:
-            d_l = _distance2d(lw, nose) / sw
-            d_r = _distance2d(rw, nose) / sw
+            d_l = _distance2d(lw, nose) / ref_len
+            d_r = _distance2d(rw, nose) / ref_len
             
             threshold = config.BLOCK_EXIT_THRESHOLD if self.guard else config.BLOCK_ENTER_THRESHOLD
             
@@ -138,9 +137,7 @@ class GestureDetector:
             self._hands_up_hold += dt
         else:
             self._hands_up_hold = 0.0
-        self.hands_up = self._hands_up_hold >= config.GETUP_HANDS_UP_TIME
-
-    def _process_hand(self, ctx: HandContext, pose: PoseData, dt: float, now: float, sw: float, calibration: Any):
+        self.hands_up = self._hands_up_hold >= config.GETUP_HANDS_UP_TIME    def _process_hand(self, ctx: HandContext, pose: PoseData, dt: float, now: float, sw: float, calibration: Any):
         ctx.punch_now = False
         ctx.haymaker_now = False
         
@@ -165,7 +162,9 @@ class GestureDetector:
             ctx.charge_time = 0.0
             return
             
-        is_punching = self._is_punching(ctx, pose, wrist, elbow, shoulder, dt, sw)
+        ref_len = calibration.arm_length if (calibration and hasattr(calibration, "arm_length")) else sw
+        
+        is_punching = self._is_punching(ctx, pose, wrist, elbow, shoulder, dt, ref_len)
         if is_punching:
             ctx.punch_confirm_hold += dt
             if ctx.punch_confirm_hold >= config.PUNCH_CONFIRMATION_TIME:
@@ -184,17 +183,10 @@ class GestureDetector:
             ctx.punch_confirm_hold = 0.0
             
         # -- CHARGE DETECTION --
-        # "Tucked" means the hand is close to the shoulder, and pulled back.
-        arm_bend = _distance2d(wrist, shoulder) / sw
+        arm_bend = _distance2d(wrist, shoulder) / ref_len
         is_tucked = arm_bend < config.CHARGE_MIN_BEND
         
-        # We need to know which way is "back"
-        # Using z-coordinate relative to shoulder if in 3D:
-        # Mediapipe: +z is further from camera. If player is sideways facing right (left shoulder lead),
-        # their right shoulder (rear) is further from camera. Tucking it brings it even further? Or closer?
-        # Actually, using x relative to shoulder width is safer.
-        
-        x_offset = (wrist[0] - shoulder[0]) / sw
+        x_offset = (wrist[0] - shoulder[0]) / ref_len
         # If facing right, rear is -x. If facing left, rear is +x.
         facing_dir = 1.0 # default facing right (enemy on right)
         
@@ -221,19 +213,17 @@ class GestureDetector:
             else:
                 ctx.charge_time += dt
                 if ctx.state == "CHARGING" and ctx.charge_time >= config.HAYMAKER_CHARGE_TIME:
-                    ctx.state = "CHARGED"
-
-    def _is_punching(self, ctx: HandContext, pose: PoseData, wrist, elbow, shoulder, dt: float, sw: float) -> bool:
+                    ctx.state = "CHARGED"    def _is_punching(self, ctx: HandContext, pose: PoseData, wrist, elbow, shoulder, dt: float, ref_len: float) -> bool:
         history = ctx.history
         if len(history) < 2 or history[0] is None:
             return False
             
-        arm_extended = _distance2d(elbow, wrist) / sw
+        arm_extended = _distance2d(elbow, wrist) / ref_len
         
         if pose.is_2d:
             past = history[0]
-            ext_speed = abs(arm_extended - (_distance2d(past, shoulder) / sw)) / max(dt * len(history), 1e-3)
-            wrist_speed = abs(wrist[0] - past[0]) / max(dt * len(history), 1e-3) / sw
+            ext_speed = abs(arm_extended - (_distance2d(past, shoulder) / ref_len)) / max(dt * len(history), 1e-3)
+            wrist_speed = abs(wrist[0] - past[0]) / max(dt * len(history), 1e-3) / ref_len
             
             if (ext_speed > (config.PUNCH2D_EXT_SPEED / self.punch_sensitivity) and
                     wrist_speed > (config.PUNCH2D_WRIST_SPEED / self.punch_sensitivity)):
@@ -254,3 +244,4 @@ class GestureDetector:
 
 def _distance2d(a, b) -> float:
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+

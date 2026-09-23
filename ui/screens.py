@@ -92,22 +92,70 @@ class VictoryScreen(Scene, _MenuMixin):
             self.game.to_main_menu()
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        self._nav(event, 2)
-
-    def draw(self, surface: pygame.Surface) -> None:
+        self._nav(event, 2)    def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
         f = self.game.fonts
-        title = f["big"].render("YOU WIN", True, C["title_white"])
-        surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 210)))
-        subtitle = f["medium"].render(
-            f"YOU DEFEATED {self.enemy_name.upper()}",
-            True, C["text_dim"])
-        surface.blit(subtitle, subtitle.get_rect(center=(config.BASE_WIDTH // 2, 290)))
-        if self.is_final:
-            champion = f["medium"].render("PANAY CHAMPION", True, C["accent_red_bright"])
-            surface.blit(champion, champion.get_rect(center=(config.BASE_WIDTH // 2, 330)))
-        labels = ["MAIN MENU" if self.is_final else "NEXT FIGHT", "MAIN MENU"]
-        self._draw_buttons(surface, labels, 400, config.BASE_WIDTH // 2)
+        title = f["large"].render("CAMERA CALIBRATION", True, C["title_white"])
+        surface.blit(title, (60, 50))
+
+        if self._phase == "collecting":
+            c = self.game.calibrator
+            
+            y = 140
+            if c.tracking_lost or c.body_not_detected:
+                msg = "TRACKING LOST - Return to the center of the frame" if c.tracking_lost else "BODY NOT FULLY DETECTED - Move backward"
+                warn = f["medium"].render(msg, True, C["hp_red"])
+                surface.blit(warn, (60, y))
+            else:
+                phase_msgs = {
+                    1: ("NEUTRAL STANCE", "Stand naturally with hands down"),
+                    2: ("RAISE BOTH ARMS", "Reach for the sky"),
+                    3: ("BOXING GUARD", "Hands up protecting your face"),
+                    4: ("SIDE-ON FIGHTING STANCE", "Turn sideways like a boxer"),
+                }
+                step, desc = phase_msgs.get(c.phase, ("WAIT", ""))
+                
+                step_text = f["large"].render(step, True, C["warn_yellow"])
+                surface.blit(step_text, (60, y))
+                y += 40
+                desc_text = f["medium"].render(desc, True, C["text"])
+                surface.blit(desc_text, (60, y))
+                
+                y += 80
+                
+                if c.hold_time > 0.05:
+                    status = "Detected! Hold..."
+                    color = C["ok_green"]
+                else:
+                    status = "Waiting for pose..."
+                    color = C["text_dim"]
+                    
+                status_text = f["medium"].render(status, True, color)
+                surface.blit(status_text, (60, y))
+                
+                # Progress bar
+                y += 40
+                progress = min(1.0, c.hold_time / 1.0) # HOLD_TIME_REQ = 1.0
+                pygame.draw.rect(surface, C["hp_empty"], (60, y, 400, 24))
+                if progress > 0:
+                    pygame.draw.rect(surface, C["ok_green"], (60, y, int(400 * progress), 24))
+                pygame.draw.rect(surface, C["border"], (60, y, 400, 24), 2)
+            
+            skip = f["small"].render("PRESS ESC TO SKIP", True, C["text_dim"])
+            surface.blit(skip, (60, 420))
+            
+            # camera preview corner
+            if self._preview is not None:
+                surface.blit(self._preview, (config.BASE_WIDTH - 360, 140))
+                pygame.draw.rect(surface, C["border"],
+                                 (config.BASE_WIDTH - 360, 140, 320, 180), 1)
+        else:
+            done = f["big"].render("CALIBRATION COMPLETE", True, C["ok_green"])
+            surface.blit(done, done.get_rect(center=(config.BASE_WIDTH // 2, 240)))
+            result = f["small"].render(self._result_text, True, C["text"])
+            surface.blit(result, result.get_rect(center=(config.BASE_WIDTH // 2, 310)))
+            self._draw_buttons(surface, ["CONTINUE", "MAIN MENU"], 400,
+                               config.BASE_WIDTH // 2)
 
 
 # ---------------------------------------------------------------------------
@@ -133,18 +181,70 @@ class DefeatScreen(Scene, _MenuMixin):
             self.game.to_main_menu()
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        self._nav(event, 2)
-
-    def draw(self, surface: pygame.Surface) -> None:
+        self._nav(event, 2)    def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
         f = self.game.fonts
-        title = f["big"].render("YOU LOST", True, C["hp_red"])
-        surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 210)))
-        subtitle = f["medium"].render(
-            f"{self.enemy_name.upper()} WINS THE ROUND", True, C["text_dim"])
-        surface.blit(subtitle, subtitle.get_rect(center=(config.BASE_WIDTH // 2, 290)))
-        self._draw_buttons(surface, ["RETRY", "MAIN MENU"], 400,
-                           config.BASE_WIDTH // 2)
+        title = f["large"].render("CAMERA CALIBRATION", True, C["title_white"])
+        surface.blit(title, (60, 50))
+
+        if self._phase == "collecting":
+            c = self.game.calibrator
+            
+            y = 140
+            if c.tracking_lost or c.body_not_detected:
+                msg = "TRACKING LOST - Return to the center of the frame" if c.tracking_lost else "BODY NOT FULLY DETECTED - Move backward"
+                warn = f["medium"].render(msg, True, C["hp_red"])
+                surface.blit(warn, (60, y))
+            else:
+                phase_msgs = {
+                    1: ("NEUTRAL STANCE", "Stand naturally with hands down"),
+                    2: ("RAISE BOTH ARMS", "Reach for the sky"),
+                    3: ("BOXING GUARD", "Hands up protecting your face"),
+                    4: ("SIDE-ON FIGHTING STANCE", "Turn sideways like a boxer"),
+                }
+                step, desc = phase_msgs.get(c.phase, ("WAIT", ""))
+                
+                step_text = f["large"].render(step, True, C["warn_yellow"])
+                surface.blit(step_text, (60, y))
+                y += 40
+                desc_text = f["medium"].render(desc, True, C["text"])
+                surface.blit(desc_text, (60, y))
+                
+                y += 80
+                
+                if c.hold_time > 0.05:
+                    status = "Detected! Hold..."
+                    color = C["ok_green"]
+                else:
+                    status = "Waiting for pose..."
+                    color = C["text_dim"]
+                    
+                status_text = f["medium"].render(status, True, color)
+                surface.blit(status_text, (60, y))
+                
+                # Progress bar
+                y += 40
+                progress = min(1.0, c.hold_time / 1.0) # HOLD_TIME_REQ = 1.0
+                pygame.draw.rect(surface, C["hp_empty"], (60, y, 400, 24))
+                if progress > 0:
+                    pygame.draw.rect(surface, C["ok_green"], (60, y, int(400 * progress), 24))
+                pygame.draw.rect(surface, C["border"], (60, y, 400, 24), 2)
+            
+            skip = f["small"].render("PRESS ESC TO SKIP", True, C["text_dim"])
+            surface.blit(skip, (60, 420))
+            
+            # camera preview corner
+            if self._preview is not None:
+                surface.blit(self._preview, (config.BASE_WIDTH - 360, 140))
+                pygame.draw.rect(surface, C["border"],
+                                 (config.BASE_WIDTH - 360, 140, 320, 180), 1)
+        else:
+            done = f["big"].render("CALIBRATION COMPLETE", True, C["ok_green"])
+            surface.blit(done, done.get_rect(center=(config.BASE_WIDTH // 2, 240)))
+            result = f["small"].render(self._result_text, True, C["text"])
+            surface.blit(result, result.get_rect(center=(config.BASE_WIDTH // 2, 310)))
+            self._draw_buttons(surface, ["CONTINUE", "MAIN MENU"], 400,
+                               config.BASE_WIDTH // 2)
 
 
 # ---------------------------------------------------------------------------
@@ -175,21 +275,70 @@ class CameraErrorScreen(Scene, _MenuMixin):
             self.game.to_main_menu()
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        self._nav(event, 3)
-
-    def draw(self, surface: pygame.Surface) -> None:
+        self._nav(event, 3)    def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
         f = self.game.fonts
-        title = f["big"].render("CAMERA NOT DETECTED", True, C["hp_red"])
-        surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 190)))
-        msg = f["small"].render(self.message, True, C["text"])
-        surface.blit(msg, msg.get_rect(center=(config.BASE_WIDTH // 2, 260)))
-        note = f["small"].render(
-            "POSE TRACKING UNAVAILABLE - KEYBOARD MODE IS AVAILABLE",
-            True, C["warn_yellow"])
-        surface.blit(note, note.get_rect(center=(config.BASE_WIDTH // 2, 310)))
-        self._draw_buttons(surface, ["RETRY", "KEYBOARD MODE", "MAIN MENU"],
-                           400, config.BASE_WIDTH // 2)
+        title = f["large"].render("CAMERA CALIBRATION", True, C["title_white"])
+        surface.blit(title, (60, 50))
+
+        if self._phase == "collecting":
+            c = self.game.calibrator
+            
+            y = 140
+            if c.tracking_lost or c.body_not_detected:
+                msg = "TRACKING LOST - Return to the center of the frame" if c.tracking_lost else "BODY NOT FULLY DETECTED - Move backward"
+                warn = f["medium"].render(msg, True, C["hp_red"])
+                surface.blit(warn, (60, y))
+            else:
+                phase_msgs = {
+                    1: ("NEUTRAL STANCE", "Stand naturally with hands down"),
+                    2: ("RAISE BOTH ARMS", "Reach for the sky"),
+                    3: ("BOXING GUARD", "Hands up protecting your face"),
+                    4: ("SIDE-ON FIGHTING STANCE", "Turn sideways like a boxer"),
+                }
+                step, desc = phase_msgs.get(c.phase, ("WAIT", ""))
+                
+                step_text = f["large"].render(step, True, C["warn_yellow"])
+                surface.blit(step_text, (60, y))
+                y += 40
+                desc_text = f["medium"].render(desc, True, C["text"])
+                surface.blit(desc_text, (60, y))
+                
+                y += 80
+                
+                if c.hold_time > 0.05:
+                    status = "Detected! Hold..."
+                    color = C["ok_green"]
+                else:
+                    status = "Waiting for pose..."
+                    color = C["text_dim"]
+                    
+                status_text = f["medium"].render(status, True, color)
+                surface.blit(status_text, (60, y))
+                
+                # Progress bar
+                y += 40
+                progress = min(1.0, c.hold_time / 1.0) # HOLD_TIME_REQ = 1.0
+                pygame.draw.rect(surface, C["hp_empty"], (60, y, 400, 24))
+                if progress > 0:
+                    pygame.draw.rect(surface, C["ok_green"], (60, y, int(400 * progress), 24))
+                pygame.draw.rect(surface, C["border"], (60, y, 400, 24), 2)
+            
+            skip = f["small"].render("PRESS ESC TO SKIP", True, C["text_dim"])
+            surface.blit(skip, (60, 420))
+            
+            # camera preview corner
+            if self._preview is not None:
+                surface.blit(self._preview, (config.BASE_WIDTH - 360, 140))
+                pygame.draw.rect(surface, C["border"],
+                                 (config.BASE_WIDTH - 360, 140, 320, 180), 1)
+        else:
+            done = f["big"].render("CALIBRATION COMPLETE", True, C["ok_green"])
+            surface.blit(done, done.get_rect(center=(config.BASE_WIDTH // 2, 240)))
+            result = f["small"].render(self._result_text, True, C["text"])
+            surface.blit(result, result.get_rect(center=(config.BASE_WIDTH // 2, 310)))
+            self._draw_buttons(surface, ["CONTINUE", "MAIN MENU"], 400,
+                               config.BASE_WIDTH // 2)
 
 
 # ---------------------------------------------------------------------------
@@ -234,23 +383,19 @@ class CalibrationScreen(Scene, _MenuMixin):
             self.game.on_calibration_done(skip=True)
 
     def _activate(self) -> None:
-        self._skip()
-
-    def update(self, dt: float) -> None:
+        self._skip()    def update(self, dt: float) -> None:
         if self._phase != "collecting":
             return
         game = self.game
         tracking, pose = game.poll_camera_for_calibration()
-        # live preview (optional): small frame in the corner
+        
         if pose is not None and game.last_camera_frame is not None:
             frame = game.last_camera_frame
             if game.pose_tracker.available:
                 frame = game.pose_tracker.draw_debug_frame(frame, pose)
             self._preview = self._to_surface(frame)
 
-        if tracking is None or not tracking.present:
-            return
-        complete = game.calibrator.add_sample(pose)
+        complete = game.calibrator.process(pose, dt)
         if complete:
             data = game.calibrator.finish()
             game.settings["calibration"] = data.to_dict()
@@ -259,45 +404,62 @@ class CalibrationScreen(Scene, _MenuMixin):
             self._result_text = (
                 f"CALIBRATED - SHOULDER {data.shoulder_width:.2f}  "
                 f"TORSO {data.torso_height:.2f}")
-            game.audio.play("menu_select")
-
-    def _to_surface(self, bgr_frame):
+            game.audio.play("menu_select")    def _to_surface(self, bgr_frame):
         rgb = bgr_frame[:, :, ::-1]
         surf = pygame.image.frombuffer(rgb.copy(), (rgb.shape[1], rgb.shape[0]),
                                        "RGB")
-        return pygame.transform.scale(surf, (320, 180))
-
-    def draw(self, surface: pygame.Surface) -> None:
+        return pygame.transform.scale(surf, (320, 180))    def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
         f = self.game.fonts
         title = f["large"].render("CAMERA CALIBRATION", True, C["title_white"])
         surface.blit(title, (60, 50))
 
         if self._phase == "collecting":
-            lines = [
-                "1.  Sit or stand in front of the camera.",
-                "2.  Keep your whole body inside the frame.",
-                "3.  Raise both hands, then return to neutral.",
-                "4.  Stand still while the system measures you.",
-                "",
-                "PRESS ESC TO SKIP",
-            ]
+            c = self.game.calibrator
+            
             y = 140
-            for line in lines:
-                surf = f["small"].render(line, True,
-                                         C["warn_yellow"] if "SKIP" in line else C["text"])
-                surface.blit(surf, (60, y))
-                y += 34
-
-            # progress bar
-            progress = self.game.calibrator.progress
-            pygame.draw.rect(surface, C["hp_empty"], (60, 380, 500, 18))
-            pygame.draw.rect(surface, C["ok_green"], (60, 380, int(500 * progress), 18))
-            pygame.draw.rect(surface, C["border"], (60, 380, 500, 18), 1)
-            label = f["small"].render(f"CALIBRATING... {int(progress * 100)}%",
-                                      True, C["text"])
-            surface.blit(label, (60, 406))
-
+            if c.tracking_lost or c.body_not_detected:
+                msg = "TRACKING LOST - Return to the center of the frame" if c.tracking_lost else "BODY NOT FULLY DETECTED - Move backward"
+                warn = f["medium"].render(msg, True, C["hp_red"])
+                surface.blit(warn, (60, y))
+            else:
+                phase_msgs = {
+                    1: ("NEUTRAL STANCE", "Stand naturally with hands down"),
+                    2: ("RAISE BOTH ARMS", "Reach for the sky"),
+                    3: ("BOXING GUARD", "Hands up protecting your face"),
+                    4: ("SIDE-ON FIGHTING STANCE", "Turn sideways like a boxer"),
+                }
+                step, desc = phase_msgs.get(c.phase, ("WAIT", ""))
+                
+                step_text = f["large"].render(step, True, C["warn_yellow"])
+                surface.blit(step_text, (60, y))
+                y += 40
+                desc_text = f["medium"].render(desc, True, C["text"])
+                surface.blit(desc_text, (60, y))
+                
+                y += 80
+                
+                if c.hold_time > 0.05:
+                    status = "Detected! Hold..."
+                    color = C["ok_green"]
+                else:
+                    status = "Waiting for pose..."
+                    color = C["text_dim"]
+                    
+                status_text = f["medium"].render(status, True, color)
+                surface.blit(status_text, (60, y))
+                
+                # Progress bar
+                y += 40
+                progress = min(1.0, c.hold_time / 1.0) # HOLD_TIME_REQ = 1.0
+                pygame.draw.rect(surface, C["hp_empty"], (60, y, 400, 24))
+                if progress > 0:
+                    pygame.draw.rect(surface, C["ok_green"], (60, y, int(400 * progress), 24))
+                pygame.draw.rect(surface, C["border"], (60, y, 400, 24), 2)
+            
+            skip = f["small"].render("PRESS ESC TO SKIP", True, C["text_dim"])
+            surface.blit(skip, (60, 420))
+            
             # camera preview corner
             if self._preview is not None:
                 surface.blit(self._preview, (config.BASE_WIDTH - 360, 140))
