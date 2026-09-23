@@ -1,0 +1,11 @@
+# PUNGOLAY SA PANAY - Python dependencies
+# pygame-ce is a drop-in replacement for pygame with wheels for newer Python
+# versions (pygame itself lags behind). It is imported as `pygame`.
+pygame-ce>=2.5.8
+# opencv-contrib-python provides cv2. mediapipe depends on it too, so we pin it
+# explicitly instead of opencv-python to avoid two packages fighting over cv2.
+opencv-contrib-python>=5.0.0.93
+# MediaPipe 1.x Tasks API (PoseLandmarker). Ships pure-python wheels that work
+# on Python 3.12-3.14. Needs pose_landmarker_lite.task (downloaded at setup).
+mediapipe>=1.0.1
+numpy>=1.26
