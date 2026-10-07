@@ -167,8 +167,10 @@ class FightScene(Scene):
             if game.debug_overlay and self.enemy.active_hitbox is not None:
                 self._draw_hitbox(surface, self.enemy.active_hitbox, (255, 120, 120))
             if game.debug_overlay:
-                self._draw_hitbox(surface, self.player.body_hitbox, (120, 120, 255), 1)
-                self._draw_hitbox(surface, self.enemy.body_hitbox, (255, 120, 255), 1)
+                for hitbox in self.player.body_hitboxes:
+                    self._draw_hitbox(surface, hitbox, (120, 120, 255), 1)
+                for hitbox in self.enemy.body_hitboxes:
+                    self._draw_hitbox(surface, hitbox, (255, 120, 255), 1)
 
             # impact text
             for impact in self.combat.impacts:
