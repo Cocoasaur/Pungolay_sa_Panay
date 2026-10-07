@@ -11,7 +11,8 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 import config
 from camera.calibration import CalibrationData
 from camera.distance_estimator import DistanceEstimator
-from camera.pose_tracker import _unletterbox_point
+from camera.gesture_detector import GestureDetector
+from camera.pose_tracker import LM_LEFT_HIP, LM_RIGHT_HIP, _unletterbox_point
 from core.game import Game
 from core.tracking import TrackingData
 
@@ -21,23 +22,26 @@ class CameraTrackingTests(unittest.TestCase):
         game = Game.__new__(Game)
         game.settings = {"mirror_input": True, "sensitivity": 1.0,
                          "smoothing": 0.55}
-        game.gestures = SimpleNamespace(guard=False, left_punch=False,
-                                        right_punch=False, hands_up=False)
+        game.gestures = GestureDetector()
         game.dt = 1.0 / 60.0
         game._smooth_x = config.DEPTH_NEUTRAL_HP
         game._resting_ratio = None
         game._resting_lateral = None
         game._stable_depth_delta = 0.0
+        game._depth_freeze_remaining = 0.0
+        game._last_lateral = None
         game.tracking = TrackingData.empty()
         return game
 
     @staticmethod
     def pose(center_x=0.5, shoulder_width=0.25, torso_height=0.20):
+        hips = {LM_LEFT_HIP: (center_x - 0.04, 0.7, 0.0, 1.0),
+                LM_RIGHT_HIP: (center_x + 0.04, 0.7, 0.0, 1.0)}
         return SimpleNamespace(present=True, body_center_x=center_x,
                                shoulder_width=shoulder_width,
                                torso_height=torso_height,
                                body_confidence=1.0, frame_w=640, frame_h=360,
-                               lm=lambda _index: None)
+                               lm=hips.get)
 
     def settle(self, game, pose, ratio, frames=240, **kwargs):
         for _ in range(frames):
@@ -82,13 +86,13 @@ class CameraTrackingTests(unittest.TestCase):
         self.assertAlmostEqual(raised_arms, lateral_only, places=4)
 
     def test_identical_calibration_keeps_distance_filter(self):
-        calibration = CalibrationData(samples=0)
+        calibration = CalibrationData()
         estimator = DistanceEstimator(calibration)
         estimator._smoothed = 1.75
-        self.assertFalse(estimator.set_calibration(CalibrationData(samples=0)))
+        self.assertFalse(estimator.set_calibration(CalibrationData()))
         self.assertEqual(estimator._smoothed, 1.75)
         self.assertTrue(estimator.set_calibration(
-            CalibrationData(shoulder_width=0.50, torso_height=0.40, samples=24)))
+            CalibrationData(shoulder_width=0.50, torso_height=0.40)))
         self.assertEqual(estimator._smoothed, 1.0)
 
     def test_raised_arms_use_torso_distance_only(self):

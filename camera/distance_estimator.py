@@ -40,8 +40,7 @@ class DistanceEstimator:
         return (
             abs(left.shoulder_width - right.shoulder_width) < 1e-6 and
             abs(left.torso_height - right.torso_height) < 1e-6 and
-            abs(left.neutral_x - right.neutral_x) < 1e-6 and
-            left.samples == right.samples
+            abs(left.neutral_x - right.neutral_x) < 1e-6
         )
 
     def set_sensitivity(self, value: float) -> None:
