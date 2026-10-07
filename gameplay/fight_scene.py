@@ -240,6 +240,8 @@ class FightScene(Scene):
         frame = game.last_camera_frame
         if game.last_pose is not None and game.last_pose.present:
             frame = game.pose_tracker.draw_debug_frame(frame, game.last_pose)
+            frame = game.gestures.draw_punch_boundary(frame, game.last_pose,
+                                                      game.calibrator.existing)
         rgb = frame[:, :, ::-1]
         camera_surface = pygame.image.frombuffer(
             rgb.copy(), (rgb.shape[1], rgb.shape[0]), "RGB")
@@ -276,4 +278,3 @@ class FightScene(Scene):
         pygame.draw.rect(surface, color,
                          (int(hitbox.x), int(hitbox.y),
                           int(hitbox.w), int(hitbox.h)), width)
-

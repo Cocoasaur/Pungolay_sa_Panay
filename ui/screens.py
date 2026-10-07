@@ -244,6 +244,7 @@ class CalibrationScreen(Scene, _MenuMixin):
             frame = game.last_camera_frame
             if game.pose_tracker.available:
                 frame = game.pose_tracker.draw_debug_frame(frame, pose)
+            frame = game.gestures.draw_punch_boundary(frame, pose, game.calibrator.existing)
             self._preview = self._to_surface(frame)
 
         complete = game.calibrator.process(pose, dt)
@@ -494,6 +495,7 @@ class CameraDebugView(Scene):
             frame = game.last_camera_frame
             if game.pose_tracker.available:
                 frame = game.pose_tracker.draw_debug_frame(frame, pose)
+            frame = game.gestures.draw_punch_boundary(frame, pose, game.calibrator.existing)
             rgb = frame[:, :, ::-1]
             surf = pygame.image.frombuffer(rgb.copy(), (rgb.shape[1], rgb.shape[0]), "RGB")
             self._preview = pygame.transform.scale(surf, (800, 450))
