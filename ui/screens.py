@@ -92,7 +92,9 @@ class VictoryScreen(Scene, _MenuMixin):
             self.game.to_main_menu()
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        self._nav(event, 2)    def draw(self, surface: pygame.Surface) -> None:
+        self._nav(event, 2)
+
+    def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
         f = self.game.fonts
         title = f["large"].render("CAMERA CALIBRATION", True, C["title_white"])
@@ -181,7 +183,9 @@ class DefeatScreen(Scene, _MenuMixin):
             self.game.to_main_menu()
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        self._nav(event, 2)    def draw(self, surface: pygame.Surface) -> None:
+        self._nav(event, 2)
+
+    def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
         f = self.game.fonts
         title = f["large"].render("CAMERA CALIBRATION", True, C["title_white"])
@@ -275,7 +279,9 @@ class CameraErrorScreen(Scene, _MenuMixin):
             self.game.to_main_menu()
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        self._nav(event, 3)    def draw(self, surface: pygame.Surface) -> None:
+        self._nav(event, 3)
+
+    def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
         f = self.game.fonts
         title = f["large"].render("CAMERA CALIBRATION", True, C["title_white"])
@@ -383,7 +389,9 @@ class CalibrationScreen(Scene, _MenuMixin):
             self.game.on_calibration_done(skip=True)
 
     def _activate(self) -> None:
-        self._skip()    def update(self, dt: float) -> None:
+        self._skip()
+
+    def update(self, dt: float) -> None:
         if self._phase != "collecting":
             return
         game = self.game
@@ -404,11 +412,15 @@ class CalibrationScreen(Scene, _MenuMixin):
             self._result_text = (
                 f"CALIBRATED - SHOULDER {data.shoulder_width:.2f}  "
                 f"TORSO {data.torso_height:.2f}")
-            game.audio.play("menu_select")    def _to_surface(self, bgr_frame):
+            game.audio.play("menu_select")
+
+    def _to_surface(self, bgr_frame):
         rgb = bgr_frame[:, :, ::-1]
         surf = pygame.image.frombuffer(rgb.copy(), (rgb.shape[1], rgb.shape[0]),
                                        "RGB")
-        return pygame.transform.scale(surf, (320, 180))    def draw(self, surface: pygame.Surface) -> None:
+        return pygame.transform.scale(surf, (320, 180))
+
+    def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
         f = self.game.fonts
         title = f["large"].render("CAMERA CALIBRATION", True, C["title_white"])

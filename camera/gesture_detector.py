@@ -137,7 +137,9 @@ class GestureDetector:
             self._hands_up_hold += dt
         else:
             self._hands_up_hold = 0.0
-        self.hands_up = self._hands_up_hold >= config.GETUP_HANDS_UP_TIME    def _process_hand(self, ctx: HandContext, pose: PoseData, dt: float, now: float, sw: float, calibration: Any):
+        self.hands_up = self._hands_up_hold >= config.GETUP_HANDS_UP_TIME
+
+    def _process_hand(self, ctx: HandContext, pose: PoseData, dt: float, now: float, sw: float, calibration: Any):
         ctx.punch_now = False
         ctx.haymaker_now = False
         
@@ -213,7 +215,9 @@ class GestureDetector:
             else:
                 ctx.charge_time += dt
                 if ctx.state == "CHARGING" and ctx.charge_time >= config.HAYMAKER_CHARGE_TIME:
-                    ctx.state = "CHARGED"    def _is_punching(self, ctx: HandContext, pose: PoseData, wrist, elbow, shoulder, dt: float, ref_len: float) -> bool:
+                    ctx.state = "CHARGED"
+
+    def _is_punching(self, ctx: HandContext, pose: PoseData, wrist, elbow, shoulder, dt: float, ref_len: float) -> bool:
         history = ctx.history
         if len(history) < 2 or history[0] is None:
             return False

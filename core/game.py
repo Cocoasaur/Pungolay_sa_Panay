@@ -155,7 +155,8 @@ class Game:
 
     # ------------------------------------------------------------------
     # the camera -> TrackingData pipeline
-    # ------------------------------------------------------------------    def poll_camera(self, dt: float) -> TrackingData:
+    # ------------------------------------------------------------------
+    def poll_camera(self, dt: float) -> TrackingData:
         """Fetch latest frame and pose from the background vision thread."""
         ok, frame, pose = self.camera.read_latest()
         self.last_tracking = self.tracking
@@ -192,7 +193,9 @@ class Game:
                 player_scale=1.0,
                 pose_present=False,
             )
-        return self.tracking    def _arms_active(self, pose) -> bool:
+        return self.tracking
+
+    def _arms_active(self, pose) -> bool:
         """Whether arm motion can corrupt shoulder-based measurements."""
         if (self.gestures.guard or self.gestures.left_punch or
                 self.gestures.right_punch):
@@ -572,7 +575,8 @@ class Game:
                 break
 
         pose = self.last_pose
-        t = self.last_tracking        rows = [
+        t = self.last_tracking
+        rows = [
             f"GAME FPS: {self.fps:.0f}",
             f"CAMERA FPS: {self.camera.fps_camera:.0f}",
             f"POSE FPS: {self.camera.fps_pose:.0f}",

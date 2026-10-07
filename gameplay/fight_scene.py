@@ -185,7 +185,8 @@ class FightScene(Scene):
             if self.player.is_knocked_down and not self.player.ko:
                 countdown = str(max(0, config.KNOCKDOWN_MAX_COUNT - self.player.knockdown_count))
             elif self.enemy.is_knocked_down and not self.enemy.ko:
-                countdown = str(max(0, config.KNOCKDOWN_MAX_COUNT - self.enemy.knockdown_count))            self.hud.draw(
+                countdown = str(max(0, config.KNOCKDOWN_MAX_COUNT - self.enemy.knockdown_count))
+            self.hud.draw(
                 surface, self.player, self.enemy,
                 distance_level=self.game.last_tracking.distance_level if self.game.last_tracking else "MEDIUM",
                 camera_status=self.game.camera_status_text(),
