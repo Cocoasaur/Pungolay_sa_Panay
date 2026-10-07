@@ -133,10 +133,12 @@ class FightScene(Scene):
     def _finish_fight(self) -> None:
         game = self.game
         if self.combat.winner == "player":
+            from ui.screens import VictoryScreen
+            result = VictoryScreen(game, enemy_name=self.enemy.name,
+                                   is_final=game.progression.is_final_fight)
             game.progression.record_victory()
             game.save_current_progress()
-            from ui.screens import VictoryScreen
-            game.states.push(VictoryScreen(game))
+            game.states.push(result)
         else:
             game.progression.record_defeat()
             from ui.screens import DefeatScreen

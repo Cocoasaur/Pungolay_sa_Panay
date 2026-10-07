@@ -67,18 +67,16 @@ class _MenuMixin:
 class VictoryScreen(Scene, _MenuMixin):
     name = "victory"
 
-    def __init__(self, game) -> None:
+    def __init__(self, game, enemy_name: Optional[str] = None,
+                 is_final: Optional[bool] = None) -> None:
         super().__init__(game)
         self.selected = 0
         self._rects = []
-        self.enemy_name = ""
-        self.is_final = False
+        self.enemy_name = game.progression.opponent["name"] if enemy_name is None else enemy_name
+        self.is_final = game.progression.is_final_fight if is_final is None else is_final
 
     def enter(self) -> None:
         self.selected = 0
-        enemy = self.game.progression.opponent
-        self.enemy_name = enemy["name"]
-        self.is_final = self.game.progression.is_final_fight
         self.game.audio.play("victory")
 
     def _activate(self) -> None:
