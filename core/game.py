@@ -146,14 +146,12 @@ class Game:
 
     def _ensure_camera(self) -> bool:
         """Open the camera and initialize pose tracking if needed."""
-        if self.camera_is_open():
-            return True
-        if self.camera.open(self.settings["camera_index"]):
-            if not self.pose_tracker.available and not self._pose_init_started:
-                self._pose_init_started = True
-                self.pose_tracker.initialize()
-            return True
-        return False
+        if not self.camera_is_open() and not self.camera.open(self.settings["camera_index"]):
+            return False
+        if not self.pose_tracker.available and not self._pose_init_started:
+            self._pose_init_started = True
+            self.pose_tracker.initialize()
+        return True
 
     # ------------------------------------------------------------------
     # the camera -> TrackingData pipeline

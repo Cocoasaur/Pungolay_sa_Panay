@@ -139,6 +139,46 @@ class GameStartupTests(unittest.TestCase):
             self.assertEqual(self.game.poll_camera_for_calibration(), (None, None))
             read.assert_not_called()
 
+    def camera_that_connects_on_open(self):
+        camera = create_autospec(CameraManager, instance=True)
+        camera._cap = None
+        camera.status = "UNINITIALIZED"
+        camera.read_latest.return_value = (True, None, PoseData(present=False))
+
+        def connect(index):
+            camera._cap = object()
+            camera.status = "CONNECTED"
+            return True
+
+        camera.open.side_effect = connect
+        return camera
+
+    def test_camera_debug_initializes_tracker_for_already_open_camera(self):
+        camera = self.camera_that_connects_on_open()
+        with patch.object(self.game, "camera", camera), patch.object(
+                self.game.pose_tracker, "initialize") as initialize:
+            self.game.show_camera_debug()
+            self.game.states.update(self.game.dt)
+            self.game.states.update(self.game.dt)
+            camera.open.assert_called_once_with(self.game.settings["camera_index"])
+            initialize.assert_called_once_with()
+            self.assertTrue(self.game._pose_init_started)
+
+    def test_camera_retry_initializes_tracker_for_already_open_camera(self):
+        camera = self.camera_that_connects_on_open()
+        with patch.object(self.game, "camera", camera), patch.object(
+                self.game.pose_tracker, "initialize") as initialize:
+            screen = CameraErrorScreen(self.game)
+            self.game.states.push(screen)
+            screen.selected = 0
+            screen._activate()
+            self.assertEqual(self.game.states.current.name, "calibration")
+            self.game.states.update(self.game.dt)
+            self.game.states.update(self.game.dt)
+            camera.open.assert_called_once_with(self.game.settings["camera_index"])
+            initialize.assert_called_once_with()
+            self.assertTrue(self.game._pose_init_started)
+
 
 if __name__ == "__main__":
     unittest.main()
