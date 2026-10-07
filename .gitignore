@@ -1,0 +1,32 @@
+# Python environments, caches, and test output
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Downloaded models/fonts, generated sounds, and personal game state
+/assets/
+/saves/
+*.log
+
+# Local credentials and assistant configuration
+.env
+.env.*
+.aws/
+.ssh/
+.codex/
+.agents/
+*.pem
+*.key
+credentials*.json
+secrets*.json
+
+# Local recordings and screenshots
+/recordings/
+/screenshots/
