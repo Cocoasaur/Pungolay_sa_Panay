@@ -45,11 +45,11 @@ class SettingsScene(Scene):
              "type": "range", "min": 0, "max": 100, "step": 5,
              "fmt": lambda v: f"{int(v)}%", "get": lambda: s["sfx_volume"] * 100,
              "set": lambda v: s.__setitem__("sfx_volume", v / 100)},
-            {"key": "camera_index", "label": "CAMERA INDEX",
+            {"key": "camera_index", "label": "CAMERA SELECTION",
              "type": "list",
              "get": lambda: s.get("camera_index", 0),
              "set": lambda v: s.__setitem__("camera_index", int(v)),
-             "options": self.cameras or [0], "fmt": lambda v: f"CAM {v}"},
+             "options": self.cameras or [0], "fmt": lambda v: "BUILT-IN (0)" if int(v) == 0 else f"EXTERNAL ({v})"},
             {"key": "input_mode", "label": "INPUT MODE",
              "type": "list", "options": ["camera", "keyboard"],
              "fmt": lambda v: v.upper(),
@@ -221,3 +221,4 @@ class SettingsScene(Scene):
                                                C["warn_yellow"] if selected else C["text_dim"])
                 surface.blit(value_surf, value_surf.get_rect(midright=(x + 680, y + 19)))
             y += 44
+
