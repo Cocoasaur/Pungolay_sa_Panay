@@ -38,6 +38,7 @@ class CalibrationData:
     timestamp: str = ""
     lead_shoulder: str = "left"  # "left" or "right"
     arm_length: float = 0.5 # normalized
+    punch_direction: float = 0.0  # image-left (-1) or image-right (+1); 0 = legacy
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -53,6 +54,7 @@ class CalibrationData:
             timestamp=str(data.get("timestamp", "")),
             lead_shoulder=str(data.get("lead_shoulder", "left")),
             arm_length=float(data.get("arm_length", 0.5)),
+            punch_direction=float(data.get("punch_direction", 0.0)),
         )
 
 
@@ -75,6 +77,7 @@ class Calibrator:
         self._centers: List[float] = []
         self._arm_lengths: List[float] = []
         self._z_diffs: List[float] = []
+        self._punch_directions: List[float] = []
         
     def start(self) -> None:
         self.phase = PHASE_NEUTRAL
@@ -86,6 +89,7 @@ class Calibrator:
         self._centers = []
         self._arm_lengths = []
         self._z_diffs = []
+        self._punch_directions = []
         self.started = True
 
     def process(self, pose: PoseData, dt: float) -> bool:
@@ -163,6 +167,8 @@ class Calibrator:
         elif self.phase == PHASE_SIDE:
             if self._is_side_stance(pose, ls, rs, lw, rw, sw):
                 self.hold_time += dt
+                self._punch_directions.append(
+                    (lw[0] + rw[0] - ls[0] - rs[0]) / 2.0)
                 if not pose.is_2d:
                     self._z_diffs.append(ls[2] - rs[2])
                 else:
@@ -183,6 +189,8 @@ class Calibrator:
         
         z_diff = statistics.median(self._z_diffs) if self._z_diffs else -0.1
         lead_shoulder = "left" if z_diff < 0 else "right"
+        hand_offset = statistics.median(self._punch_directions) if self._punch_directions else 0.0
+        punch_direction = (1.0 if hand_offset > 0 else -1.0) if abs(hand_offset) > 0.02 else 0.0
         
         data = CalibrationData(
             shoulder_width=statistics.median(self._shoulders) if self._shoulders else config.DISTANCE_REF_FALLBACK,
@@ -191,6 +199,7 @@ class Calibrator:
             arm_length=statistics.median(self._arm_lengths) if self._arm_lengths else 0.5,
             timestamp=time.strftime("%Y-%m-%d %H:%M"),
             lead_shoulder=lead_shoulder,
+            punch_direction=punch_direction,
         )
         log.info(f"Calibration complete: shoulder={data.shoulder_width:.3f} torso={data.torso_height:.3f} lead={data.lead_shoulder} arm={data.arm_length:.3f}")
         return data
