@@ -238,6 +238,7 @@ TRACKING_RESPONSE_TIME = 0.085  # seconds; 95% of a move settles in about 250 ms
 TRACKING_RESPONSE_TIME_MAX = 0.110  # maximum smoothing-slider response time
 TRACKING_LATERAL_DEADBAND = 0.012  # normalized camera-space jitter to ignore
 TRACKING_DEPTH_DEADBAND = 0.025    # ratio jitter to ignore around the stance
+TRACKING_PUNCH_RECOVERY = 0.30    # hold depth while arm/shoulder tracking settles
 
 TRACKING_SMOOTHING_FACTOR = 0.3    # Exponential moving average factor (0.0 to 1.0)
 TRACKING_CONFIDENCE_THRESHOLD = 0.6
@@ -267,6 +268,8 @@ PUNCH_ARM_EXTENDED = 0.30        # elbow-wrist distance must exceed this
 PUNCH_COOLDOWN = 0.35            # seconds between punches per hand
 PUNCH_VELOCITY_THRESHOLD = 0.8   # minimum velocity magnitude for punch detection
 PUNCH_CONFIRMATION_TIME = 0.05   # seconds a punch condition must be met to trigger
+PUNCH_LINE_REACH = 0.60          # fraction of calibrated arm length ahead of torso
+PUNCH_LINE_REARM = 0.15          # hand must retract this far behind the punch line
 
 BLOCK_ENTER_THRESHOLD = 0.35     # max wrist-to-shoulder normalized distance to enter block
 BLOCK_EXIT_THRESHOLD = 0.45      # max wrist-to-shoulder normalized distance to exit block
@@ -279,13 +282,6 @@ HAYMAKER_CHARGE_TIME = 5.0
 HAYMAKER_DAMAGE_MULTIPLIER = 2.0
 
 GETUP_HANDS_UP_TIME = 0.5        # seconds both hands must be raised to get up
-
-# 2D punch heuristic (used when the pose backend has no depth): the arm must
-# extend sharply while the wrist races across the body -- measured in
-# shoulder-width units so it is independent of camera distance.
-PUNCH2D_EXT_SPEED = 1.4          # arm-extension speed (shoulder-widths / s)
-PUNCH2D_EXT_MIN = 0.95           # extension at trigger (shoulder-widths)
-PUNCH2D_WRIST_SPEED = 0.8        # wrist lateral speed (shoulder-widths / s)
 
 # OpenCV (YOLO-pose) backend thresholds
 POSE_CV2_PERSON_SCORE = 0.35     # min person detection score

@@ -133,10 +133,12 @@ class FightScene(Scene):
     def _finish_fight(self) -> None:
         game = self.game
         if self.combat.winner == "player":
+            from ui.screens import VictoryScreen
+            result = VictoryScreen(game, enemy_name=self.enemy.name,
+                                   is_final=game.progression.is_final_fight)
             game.progression.record_victory()
             game.save_current_progress()
-            from ui.screens import VictoryScreen
-            game.states.push(VictoryScreen(game))
+            game.states.push(result)
         else:
             game.progression.record_defeat()
             from ui.screens import DefeatScreen
@@ -167,8 +169,10 @@ class FightScene(Scene):
             if game.debug_overlay and self.enemy.active_hitbox is not None:
                 self._draw_hitbox(surface, self.enemy.active_hitbox, (255, 120, 120))
             if game.debug_overlay:
-                self._draw_hitbox(surface, self.player.body_hitbox, (120, 120, 255), 1)
-                self._draw_hitbox(surface, self.enemy.body_hitbox, (255, 120, 255), 1)
+                for hitbox in self.player.body_hitboxes:
+                    self._draw_hitbox(surface, hitbox, (120, 120, 255), 1)
+                for hitbox in self.enemy.body_hitboxes:
+                    self._draw_hitbox(surface, hitbox, (255, 120, 255), 1)
 
             # impact text
             for impact in self.combat.impacts:
@@ -185,7 +189,8 @@ class FightScene(Scene):
             if self.player.is_knocked_down and not self.player.ko:
                 countdown = str(max(0, config.KNOCKDOWN_MAX_COUNT - self.player.knockdown_count))
             elif self.enemy.is_knocked_down and not self.enemy.ko:
-                countdown = str(max(0, config.KNOCKDOWN_MAX_COUNT - self.enemy.knockdown_count))            self.hud.draw(
+                countdown = str(max(0, config.KNOCKDOWN_MAX_COUNT - self.enemy.knockdown_count))
+            self.hud.draw(
                 surface, self.player, self.enemy,
                 distance_level=self.game.last_tracking.distance_level if self.game.last_tracking else "MEDIUM",
                 camera_status=self.game.camera_status_text(),
@@ -235,6 +240,8 @@ class FightScene(Scene):
         frame = game.last_camera_frame
         if game.last_pose is not None and game.last_pose.present:
             frame = game.pose_tracker.draw_debug_frame(frame, game.last_pose)
+            frame = game.gestures.draw_punch_boundary(frame, game.last_pose,
+                                                      game.calibrator.existing)
         rgb = frame[:, :, ::-1]
         camera_surface = pygame.image.frombuffer(
             rgb.copy(), (rgb.shape[1], rgb.shape[0]), "RGB")
@@ -271,4 +278,3 @@ class FightScene(Scene):
         pygame.draw.rect(surface, color,
                          (int(hitbox.x), int(hitbox.y),
                           int(hitbox.w), int(hitbox.h)), width)
-

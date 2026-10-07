@@ -15,7 +15,9 @@ class HUD:
     def __init__(self, fonts: dict) -> None:
         self.fonts = fonts
 
-    # ------------------------------------------------------------------    def draw(self, surface: pygame.Surface, player: Player, enemy: Enemy,
+    # ------------------------------------------------------------------
+
+    def draw(self, surface: pygame.Surface, player: Player, enemy: Enemy,
              distance_level: str, camera_status: str, pose_present: bool,
              tracking_lost: bool, countdown: str = "", fight_over: bool = False,
              time_ms: int = 0, tracking=None) -> None:

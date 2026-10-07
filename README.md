@@ -83,6 +83,14 @@ F1 in a fight). Press **F3** for a live debug overlay and **F11** for
 fullscreen. If camera movement ever feels reversed, toggle **MIRROR INPUT** in
 SETTINGS.
 
+With the OpenCV camera backend, the preview shows a yellow **PUNCH** line in
+front of your calibrated side-on stance. It follows your torso and scales with
+your camera distance. Extend either hand across it to punch, then bring that
+hand back behind the line before punching again. **PUNCH SENSITIVITY** changes
+how far you need to reach. Recalibrate after changing which direction you face.
+Hip movement controls lateral steps; depth movement uses torso size and pauses
+while hands are raised or punching, including a short recovery period.
+
 ## Fight flow
 
 - Each fight is three-knockdown: go down three times and you're out.

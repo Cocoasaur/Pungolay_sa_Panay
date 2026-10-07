@@ -67,8 +67,8 @@ class Game:
         backend = self.settings.get("pose_backend", config.POSE_BACKEND)
         if backend in ("auto", "mediapipe", "cv2"):
             config.POSE_BACKEND = backend
-        self.camera = CameraManager(self.pose_tracker)
         self.pose_tracker = PoseTracker()
+        self.camera = CameraManager(self.pose_tracker)
         self._pose_init_started = False
         self.calibrator = Calibrator(
             CalibrationData.from_dict(self.settings.get("calibration")))
@@ -88,6 +88,8 @@ class Game:
         self._resting_ratio: Optional[float] = None
         self._resting_lateral: Optional[float] = None
         self._stable_depth_delta = 0.0
+        self._depth_freeze_remaining = 0.0
+        self._last_lateral: Optional[float] = None
         self._tracking_lost_time = 0.0
         self._pose_gone = True
 
@@ -144,18 +146,17 @@ class Game:
 
     def _ensure_camera(self) -> bool:
         """Open the camera and initialize pose tracking if needed."""
-        if self.camera_is_open():
-            return True
-        if self.camera.open(self.settings["camera_index"]):
-            if not self.pose_tracker.available and not self._pose_init_started:
-                self._pose_init_started = True
-                self.pose_tracker.initialize()
-            return True
-        return False
+        if not self.camera_is_open() and not self.camera.open(self.settings["camera_index"]):
+            return False
+        if not self.pose_tracker.available and not self._pose_init_started:
+            self._pose_init_started = True
+            self.pose_tracker.initialize()
+        return True
 
     # ------------------------------------------------------------------
     # the camera -> TrackingData pipeline
-    # ------------------------------------------------------------------    def poll_camera(self, dt: float) -> TrackingData:
+    # ------------------------------------------------------------------
+    def poll_camera(self, dt: float) -> TrackingData:
         """Fetch latest frame and pose from the background vision thread."""
         ok, frame, pose = self.camera.read_latest()
         self.last_tracking = self.tracking
@@ -174,11 +175,22 @@ class Game:
             # gestures
             self.gestures.update(pose, dt, self.calibrator.existing)
             arms_active = self._arms_active(pose)
+            if arms_active:
+                self._depth_freeze_remaining = config.TRACKING_PUNCH_RECOVERY
+            else:
+                self._depth_freeze_remaining = max(0.0, self._depth_freeze_remaining - dt)
+            freeze_depth = arms_active or self._depth_freeze_remaining > 0.0
+
+            torso_landmarks = [pose.lm(index) for index in (
+                LM_LEFT_SHOULDER, LM_RIGHT_SHOULDER, LM_LEFT_HIP, LM_RIGHT_HIP)]
+            if any(lm is None or lm[3] < config.POSE_MIN_LANDMARK_VIS
+                   for lm in torso_landmarks):
+                freeze_depth = True
 
             ratio, level, scale = self.distance.update(
-                pose, dt, torso_only=arms_active)
+                pose, dt, torso_only=True, freeze=freeze_depth)
             self._update_tracking_data(pose, ratio, level, scale, dt,
-                                       freeze_depth=arms_active)
+                                       freeze_depth=freeze_depth)
         else:
             self._pose_gone = True
             self._tracking_lost_time += dt
@@ -192,22 +204,27 @@ class Game:
                 player_scale=1.0,
                 pose_present=False,
             )
-        return self.tracking    def _arms_active(self, pose) -> bool:
+        return self.tracking
+
+    def _arms_active(self, pose) -> bool:
         """Whether arm motion can corrupt shoulder-based measurements."""
         if (self.gestures.guard or self.gestures.left_punch or
-                self.gestures.right_punch):
+                self.gestures.right_punch or self.gestures.left_haymaker or
+                self.gestures.right_haymaker or self.gestures.is_charging):
             return True
         left_wrist = pose.lm(LM_LEFT_WRIST)
         right_wrist = pose.lm(LM_RIGHT_WRIST)
         left_shoulder = pose.lm(LM_LEFT_SHOULDER)
         right_shoulder = pose.lm(LM_RIGHT_SHOULDER)
-        if not all((left_wrist, right_wrist, left_shoulder, right_shoulder)):
-            return False
-        if min(left_wrist[3], right_wrist[3], left_shoulder[3],
-               right_shoulder[3]) < config.POSE_MIN_LANDMARK_VIS:
-            return False
-        shoulder_y = (left_shoulder[1] + right_shoulder[1]) / 2.0
-        return left_wrist[1] < shoulder_y or right_wrist[1] < shoulder_y
+        # Detect a raised or extending arm before the punch event fires.
+        # Requiring both hands lost protection when one wrist was occluded.
+        for wrist, shoulder in ((left_wrist, left_shoulder),
+                                (right_wrist, right_shoulder)):
+            if (wrist is not None and shoulder is not None and
+                    min(wrist[3], shoulder[3]) >= config.POSE_MIN_LANDMARK_VIS and
+                    wrist[1] <= shoulder[1] + pose.torso_height * 0.5):
+                return True
+        return False
 
     def _update_tracking_data(self, pose, ratio: float, level: str,
                               scale: float, dt: Optional[float] = None,
@@ -220,7 +237,7 @@ class Game:
         lateral = self._lateral_position(pose)
         if self.settings.get("mirror_input"):
             lateral = 1.0 - lateral
-        if self._resting_ratio is None:
+        if self._resting_ratio is None and not freeze_depth:
             self._resting_ratio = ratio
         if self._resting_lateral is None:
             self._resting_lateral = lateral
@@ -284,16 +301,20 @@ class Game:
             return 0.0
         return value - width if value > 0.0 else value + width
 
-    @staticmethod
-    def _lateral_position(pose) -> float:
+    def _lateral_position(self, pose) -> float:
         """Hips are the stable lateral anchor; arms never affect movement."""
         left_hip = pose.lm(LM_LEFT_HIP)
         right_hip = pose.lm(LM_RIGHT_HIP)
         if (left_hip is not None and right_hip is not None and
                 left_hip[3] >= config.POSE_MIN_LANDMARK_VIS and
                 right_hip[3] >= config.POSE_MIN_LANDMARK_VIS):
-            return (left_hip[0] + right_hip[0]) / 2.0
-        return pose.body_center_x
+            self._last_lateral = (left_hip[0] + right_hip[0]) / 2.0
+            return self._last_lateral
+        # If tracked hips disappear during a punch, keep their last position
+        # instead of replacing them with an arm-sensitive shoulder center.
+        if self._last_lateral is None:
+            self._last_lateral = pose.body_center_x
+        return self._last_lateral
 
     def reset_tracking_position(self) -> None:
         """Start a fight at the fighter's neutral arena position.
@@ -306,28 +327,16 @@ class Game:
         self._resting_ratio = None
         self._resting_lateral = None
         self._stable_depth_delta = 0.0
+        self._depth_freeze_remaining = 0.0
+        self._last_lateral = None
 
     def poll_camera_for_calibration(self):
         """Feed one camera frame through the pipeline; used by the
         calibration screen and the camera debug view."""
-        if not self.camera_is_open():
-            if not self.camera.open(self.settings["camera_index"]):
-                return None, None
-        dt = self.dt
-        ok, frame = self.camera.read()
-        if not ok:
+        if not self._ensure_camera():
             return None, None
-        self.last_camera_frame = frame
-        pose = self.pose_tracker.process(frame) if self.pose_tracker.available else None
-        self.last_pose = pose
-        if pose is not None and pose.present and pose.body_confidence >= config.POSE_MIN_BODY_CONFIDENCE:
-            self.gestures.update(pose, dt, self.calibrator.existing)
-            arms_active = self._arms_active(pose)
-            ratio, level, scale = self.distance.update(
-                pose, dt, torso_only=arms_active)
-            self._update_tracking_data(pose, ratio, level, scale, dt,
-                                       freeze_depth=arms_active)
-        return self.tracking, pose
+        tracking = self.poll_camera(self.dt)
+        return tracking, self.last_pose
 
     def get_current_tracking(self) -> TrackingData:
         """The logical input for gameplay this frame (camera or keyboard)."""
@@ -359,6 +368,7 @@ class Game:
             self._resting_ratio = None
             self._resting_lateral = None
             self._stable_depth_delta = 0.0
+            self._depth_freeze_remaining = 0.0
         if s["input_mode"] == "keyboard":
             self.camera.release()
         if s["fullscreen"] != self._fullscreen:
@@ -572,7 +582,8 @@ class Game:
                 break
 
         pose = self.last_pose
-        t = self.last_tracking        rows = [
+        t = self.last_tracking
+        rows = [
             f"GAME FPS: {self.fps:.0f}",
             f"CAMERA FPS: {self.camera.fps_camera:.0f}",
             f"POSE FPS: {self.camera.fps_pose:.0f}",
