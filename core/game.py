@@ -67,8 +67,8 @@ class Game:
         backend = self.settings.get("pose_backend", config.POSE_BACKEND)
         if backend in ("auto", "mediapipe", "cv2"):
             config.POSE_BACKEND = backend
-        self.camera = CameraManager(self.pose_tracker)
         self.pose_tracker = PoseTracker()
+        self.camera = CameraManager(self.pose_tracker)
         self._pose_init_started = False
         self.calibrator = Calibrator(
             CalibrationData.from_dict(self.settings.get("calibration")))
@@ -313,24 +313,10 @@ class Game:
     def poll_camera_for_calibration(self):
         """Feed one camera frame through the pipeline; used by the
         calibration screen and the camera debug view."""
-        if not self.camera_is_open():
-            if not self.camera.open(self.settings["camera_index"]):
-                return None, None
-        dt = self.dt
-        ok, frame = self.camera.read()
-        if not ok:
+        if not self._ensure_camera():
             return None, None
-        self.last_camera_frame = frame
-        pose = self.pose_tracker.process(frame) if self.pose_tracker.available else None
-        self.last_pose = pose
-        if pose is not None and pose.present and pose.body_confidence >= config.POSE_MIN_BODY_CONFIDENCE:
-            self.gestures.update(pose, dt, self.calibrator.existing)
-            arms_active = self._arms_active(pose)
-            ratio, level, scale = self.distance.update(
-                pose, dt, torso_only=arms_active)
-            self._update_tracking_data(pose, ratio, level, scale, dt,
-                                       freeze_depth=arms_active)
-        return self.tracking, pose
+        tracking = self.poll_camera(self.dt)
+        return tracking, self.last_pose
 
     def get_current_tracking(self) -> TrackingData:
         """The logical input for gameplay this frame (camera or keyboard)."""
