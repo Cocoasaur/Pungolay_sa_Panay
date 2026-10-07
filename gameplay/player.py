@@ -144,6 +144,8 @@ class Player:
     # ------------------------------------------------------------------
     def _start_punch(self, side: str, now: float, is_haymaker: bool = False) -> None:
         self.is_haymaker_punch = is_haymaker
+        if is_haymaker:
+            print(f"DEBUG: HAYMAKER ACTIVATED ON {side.upper()} ARM!")
         if self._punch_cooldown > 0.0:
             return
         if self.state in ("punch_l", "punch_r", "hit") or self.is_knocked_down:
@@ -224,3 +226,4 @@ class Player:
 
     def reset(self, x: Optional[float] = None) -> None:
         self.__init__(x if x is not None else self.x)
+

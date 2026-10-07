@@ -594,9 +594,10 @@ class Game:
             f"POSE: {'OK' if (pose and pose.present) else 'NONE'}",
             f"BODY CONFIDENCE: {t.body_confidence:.2f}" if t else "BODY CONFIDENCE: -",
             f"PLAYER X: {t.horizontal_position:.2f}" if t else "PLAYER X: -",
-            f"DISTANCE: {t.distance_level}" if t else "DISTANCE: -",
-            f"LEFT PUNCH: {bool(t.left_punch)}" if t else "LEFT PUNCH: -",
+            f"DISTANCE: {t.distance_level}" if t else "DISTANCE: -",            f"LEFT PUNCH: {bool(t.left_punch)}" if t else "LEFT PUNCH: -",
             f"RIGHT PUNCH: {bool(t.right_punch)}" if t else "RIGHT PUNCH: -",
+            f"LEFT HAYMAKER: {bool(t.left_haymaker)}" if t else "LEFT HAYMAKER: -",
+            f"RIGHT HAYMAKER: {bool(t.right_haymaker)}" if t else "RIGHT HAYMAKER: -",
             f"GUARD: {bool(t.guard)}" if t else "GUARD: -",
             f"CHARGING: {t.is_charging} ({t.charge_progress*100:.0f}%)" if t else "CHARGING: -",
             f"CHARGED: {t.is_charged}" if t else "CHARGED: -",
@@ -624,6 +625,7 @@ class Game:
         self.pose_tracker.close()
         pygame.quit()
         log.info("Game shut down cleanly.")
+
 
 
 
