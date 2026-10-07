@@ -46,8 +46,9 @@ class DistanceEstimator:
     def set_sensitivity(self, value: float) -> None:
         self._sensitivity = max(0.2, min(3.0, value))
 
-    def update(self, pose, dt: float, torso_only: bool = False) -> tuple:
-        """Returns (ratio, level, sprite_scale) for the current frame."""
+    def update(self, pose, dt: float, torso_only: bool = False,
+               freeze: bool = False) -> tuple:
+        """Return (ratio, level, sprite_scale); freeze keeps the previous filter."""
         target = 1.0
         if pose.present:
             ratios = []
@@ -63,8 +64,9 @@ class DistanceEstimator:
             # sensitivity>1 exaggerates movement; <1 damps it
                 target = 1.0 + (target - 1.0) * self._sensitivity
 
-        alpha = 1.0 - config.DISTANCE_SMOOTHING ** (dt * 60.0)
-        self._smoothed += (target - self._smoothed) * alpha
+        if not freeze:
+            alpha = 1.0 - config.DISTANCE_SMOOTHING ** (dt * 60.0)
+            self._smoothed += (target - self._smoothed) * alpha
         ratio = max(0.3, min(3.0, self._smoothed))
 
         if ratio >= config.DISTANCE_CLOSE_RATIO:

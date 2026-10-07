@@ -238,6 +238,7 @@ TRACKING_RESPONSE_TIME = 0.085  # seconds; 95% of a move settles in about 250 ms
 TRACKING_RESPONSE_TIME_MAX = 0.110  # maximum smoothing-slider response time
 TRACKING_LATERAL_DEADBAND = 0.012  # normalized camera-space jitter to ignore
 TRACKING_DEPTH_DEADBAND = 0.025    # ratio jitter to ignore around the stance
+TRACKING_PUNCH_RECOVERY = 0.30    # hold depth while arm/shoulder tracking settles
 
 TRACKING_SMOOTHING_FACTOR = 0.3    # Exponential moving average factor (0.0 to 1.0)
 TRACKING_CONFIDENCE_THRESHOLD = 0.6
