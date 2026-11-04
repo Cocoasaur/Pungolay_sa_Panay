@@ -83,20 +83,38 @@ class ArtAssetTests(unittest.TestCase):
 
     def test_fighter_mirroring_and_flash_keep_transparent_pixels_clear(self):
         image = pygame.Surface((4, 4), pygame.SRCALPHA)
-        image.fill((255, 0, 0, 255), (1, 1, 1, 3))
-        image.fill((0, 0, 255, 255), (2, 1, 1, 3))
+        image.fill((255, 0, 0, 255), (0, 1, 1, 3))
+        image.fill((0, 0, 255, 255), (3, 1, 1, 3))
+        image.fill((255, 255, 255, 255), (1, 0, 2, 1))
         path = self.temp / "player.png"
         pygame.image.save(image, str(path))
         with patch.object(config, "SPRITES_DIR", str(self.temp)):
             normal = _scaled_sprite(str(path), 4, 4, 1)
             mirrored = _scaled_sprite(str(path), 4, 4, -1)
-            self.assertEqual(normal.get_at((1, 1)), mirrored.get_at((2, 1)))
-            before = pygame.image.tobytes(normal, "RGBA")
-            canvas = pygame.Surface((400, 300))
+            self.assertEqual(normal.get_at((0, 1)), mirrored.get_at((3, 1)))
+            self.assertNotEqual(normal.get_at((0, 1)), normal.get_at((3, 1)))
+            height = int(config.FIGHTER_BODY_HEIGHT)
+            cached = _scaled_sprite(str(path), height, height, 1)
+            before = pygame.image.tobytes(cached, "RGBA")
+            canvas = pygame.Surface((400, 400))
             canvas.fill((10, 20, 30))
-            draw_boxer(canvas, 200, 200, 1, "hit", 0, 1, (80, 30, 30), flash=True)
-            self.assertEqual(canvas.get_at((141, 81))[:3], (10, 20, 30))
-            self.assertEqual(pygame.image.tobytes(normal, "RGBA"), before)
+            draw_boxer(canvas, 200, 280, 1, "hit", 0, 1, (80, 30, 30), flash=True)
+            self.assertEqual(canvas.get_at((80, 40))[:3], (10, 20, 30))
+            self.assertEqual(pygame.image.tobytes(cached, "RGBA"), before)
+
+    def test_padding_does_not_reduce_visible_fighter_height_or_raise_feet(self):
+        image = pygame.Surface((160, 200), pygame.SRCALPHA)
+        image.fill((230, 20, 30, 255), (40, 20, 80, 140))
+        path = self.temp / "player.png"
+        pygame.image.save(image, str(path))
+        with patch.object(config, "SPRITES_DIR", str(self.temp)):
+            canvas = pygame.Surface((500, 500), pygame.SRCALPHA)
+            draw_boxer(canvas, 250, 400, 1, "idle", 0, 1, (80, 30, 30))
+            # Red body pixels exclude the semitransparent ground shadow.
+            body = pygame.mask.from_threshold(canvas, (230, 20, 30, 255), (1, 1, 1, 1))
+            bounds = body.get_bounding_rects()[0]
+            self.assertEqual(bounds.height, int(config.FIGHTER_BODY_HEIGHT))
+            self.assertEqual(bounds.bottom, 400)
 
     def test_custom_arena_resizes_composites_and_caches(self):
         path = self.temp / "black22.png"

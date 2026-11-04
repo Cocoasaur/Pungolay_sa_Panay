@@ -52,6 +52,11 @@ RING_FLOOR_Y = 520           # top of the ring floor boards
 RING_POST_X = 26             # x of the corner posts (both sides)
 ROPE_YS = (352, 388, 424)    # y positions of the three ropes
 
+# Shared by the renderer, defensive hitboxes, punch reach, and AI spacing.
+FIGHTER_SIZE = 2.0
+FIGHTER_BODY_WIDTH = 54 * FIGHTER_SIZE
+FIGHTER_BODY_HEIGHT = 120 * FIGHTER_SIZE
+
 # ---------------------------------------------------------------------------
 # Color palette (charcoal / warm wood / white / red accent)
 # ---------------------------------------------------------------------------

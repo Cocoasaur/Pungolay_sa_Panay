@@ -23,7 +23,13 @@ C = config.COLORS
 
 @lru_cache(maxsize=32)
 def _load_sprite(path: str) -> pygame.Surface:
-    return pygame.image.load(path).convert_alpha()
+    image = pygame.image.load(path).convert_alpha()
+    bounds = image.get_bounding_rect()
+    # Size the visible character, keeping transparent borders out of the
+    # height calculation and the feet anchored at the ground position.
+    if bounds.width and bounds.height:
+        return image.subsurface(bounds).copy()
+    return image
 
 
 @lru_cache(maxsize=128)
@@ -66,7 +72,7 @@ def draw_boxer(surface, x: float, foot_y: float, facing: int, state: str,
                flash: bool = False, hit_lean: float = 0.0,
                fighter_id: str = "player") -> None:
     """Draw one fighter at ground position x with feet on foot_y."""
-    s = scale
+    s = scale * config.FIGHTER_SIZE
     cx = x
     outline = C["fighter_outline"]
     white = C["fighter_white"]
@@ -78,7 +84,7 @@ def draw_boxer(surface, x: float, foot_y: float, facing: int, state: str,
 
     sprite_path = _sprite_path(fighter_id, state)
     if sprite_path is not None:
-        sprite_height = max(1, int(120 * s))
+        sprite_height = max(1, int(config.FIGHTER_BODY_HEIGHT * scale))
         source = _load_sprite(sprite_path)
         sprite_width = max(
             1, int(sprite_height * source.get_width() / source.get_height()))

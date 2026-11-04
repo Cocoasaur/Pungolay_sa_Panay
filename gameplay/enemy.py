@@ -25,8 +25,9 @@ class Enemy:
         self.hp = self.max_hp
         self.damage = float(archetype["damage"])
         self.speed = float(archetype["speed"])
-        self.reach = float(archetype["reach"])
-        self.preferred_distance = float(archetype["preferred_distance"])
+        self.reach = float(archetype["reach"]) * config.FIGHTER_SIZE
+        self.preferred_distance = (float(archetype["preferred_distance"])
+                                   * config.FIGHTER_SIZE)
         self.aggression = float(archetype["aggression"])
         self.guard_chance = float(archetype["guard_chance"])
         self.retreat_chance = float(archetype["retreat_chance"])
@@ -41,8 +42,8 @@ class Enemy:
         self.x = x
         self.facing = -1                 # toward the player (left)
         self.scale = 1.0
-        self.body_w = 54
-        self.body_h = 132
+        self.body_w = config.FIGHTER_BODY_WIDTH
+        self.body_h = config.FIGHTER_BODY_HEIGHT
 
         self.state = "idle"
         self.state_timer = 0.0
@@ -126,7 +127,7 @@ class Enemy:
 
     def _spawn_attack_hitbox(self) -> None:
         hw = self.body_w * self.scale * 0.35 + self.reach * self.scale
-        hh = 30 * self.scale
+        hh = 30 * config.FIGHTER_SIZE * self.scale
         hand_y = config.GROUND_Y - self.body_h * self.scale * 0.62
         edge = self.x + self.facing * self.body_w * self.scale * 0.35
         self.active_hitbox = Hitbox(

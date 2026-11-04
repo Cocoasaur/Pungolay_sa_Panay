@@ -28,15 +28,15 @@ class Player:
         self.punch_damage = float(P["punch_damage"])
         self.punch_cooldown = float(P["punch_cooldown"])
         self.move_speed = float(P["move_speed"])
-        self.reach = float(P["reach"])
+        self.reach = float(P["reach"]) * config.FIGHTER_SIZE
         self.guard_damage_reduction = float(P["guard_damage_reduction"])
 
         # --- motion -----------------------------------------------------
         self.x = x
         self.facing = 1                 # +1 = toward the enemy (right)
         self.scale = 1.0                # from distance estimation
-        self.body_w = 54
-        self.body_h = 132
+        self.body_w = config.FIGHTER_BODY_WIDTH
+        self.body_h = config.FIGHTER_BODY_HEIGHT
 
         # --- state machine ----------------------------------------------
         self.state = "idle"
@@ -167,7 +167,7 @@ class Player:
                 self.attack_id += 1
                 reach = self.reach * self.scale
                 hw = self.body_w * self.scale * 0.35 + reach
-                hh = 26 * self.scale
+                hh = 26 * config.FIGHTER_SIZE * self.scale
                 hand_y = config.GROUND_Y - self.body_h * self.scale * 0.62
                 edge = self.x + self.facing * self.body_w * self.scale * 0.35
                 self.active_hitbox = Hitbox(
