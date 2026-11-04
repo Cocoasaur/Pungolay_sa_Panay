@@ -9,19 +9,26 @@ from __future__ import annotations
 import logging
 import sys
 import time
+from dataclasses import replace
 from typing import Optional
 
 import pygame
 
 import config
 from camera.calibration import CalibrationData, Calibrator
-from camera.camera_manager import CameraManager
+from camera.camera_manager import CameraManager, CameraSample
 from camera.distance_estimator import DistanceEstimator
 from camera.gesture_detector import GestureDetector
-from camera.pose_tracker import (LM_LEFT_SHOULDER, LM_LEFT_WRIST,
-                                 LM_LEFT_HIP, LM_RIGHT_HIP,
-                                 LM_RIGHT_SHOULDER, LM_RIGHT_WRIST,
-                                 PoseData, PoseTracker)
+from camera.pose_tracker import (
+    LM_LEFT_SHOULDER,
+    LM_LEFT_WRIST,
+    LM_LEFT_HIP,
+    LM_RIGHT_HIP,
+    LM_RIGHT_SHOULDER,
+    LM_RIGHT_WRIST,
+    PoseData,
+    PoseTracker,
+)
 from core.audio import AudioManager
 from core.events import EventBus
 from core.input_controller import KeyboardInput
@@ -43,6 +50,7 @@ class Game:
         pygame.init()
         pygame.display.set_caption(f"{config.GAME_TITLE} v{config.VERSION}")
         self.canvas = pygame.Surface((config.BASE_WIDTH, config.BASE_HEIGHT))
+        self._scene_surface = pygame.Surface(self.canvas.get_size())
         self.clock = pygame.time.Clock()
         self.running = True
         self.fps = 0.0
@@ -70,13 +78,19 @@ class Game:
         self.pose_tracker = PoseTracker()
         self.camera = CameraManager(self.pose_tracker)
         self._pose_init_started = False
-        self.calibrator = Calibrator(
-            CalibrationData.from_dict(self.settings.get("calibration")))
+        self._last_sample_id = -1
+        self._last_sample_time = None
+        self._sample_is_new = False
+        self._sample_dt = 0.0
+        self._settings_applied = dict(self.settings)
+        self.raw_landmarks = False
+        self.calibrator = Calibrator(CalibrationData.from_dict(self.settings.get("calibration")))
         self.distance = DistanceEstimator(
             self.calibrator.existing or CalibrationData(),
-            sensitivity=self.settings["distance_sensitivity"])
-        self.gestures = GestureDetector(
-            punch_sensitivity=self.settings["punch_sensitivity"])
+            sensitivity=self.settings["distance_sensitivity"],
+        )
+        self.gestures = GestureDetector(punch_sensitivity=self.settings["punch_sensitivity"])
+        self.gestures.line_reach = self.settings.get("punch_line_reach", config.PUNCH_LINE_REACH)
         self.keyboard = KeyboardInput()
 
         # final logical input produced by the pipeline
@@ -106,6 +120,7 @@ class Game:
         # scenes
         # ------------------------------------------------------------------
         from ui.main_menu import MainMenu
+
         self.states.push(MainMenu(self))
 
     # ------------------------------------------------------------------
@@ -123,8 +138,7 @@ class Game:
     # ------------------------------------------------------------------
     def _apply_window_mode(self) -> None:
         flags = pygame.RESIZABLE | (pygame.FULLSCREEN if self._fullscreen else 0)
-        self.screen = pygame.display.set_mode(
-            (config.BASE_WIDTH, config.BASE_HEIGHT), flags)
+        self.screen = pygame.display.set_mode((config.BASE_WIDTH, config.BASE_HEIGHT), flags)
 
     def toggle_fullscreen(self) -> None:
         self._fullscreen = not self._fullscreen
@@ -135,45 +149,77 @@ class Game:
     # camera helpers
     # ------------------------------------------------------------------
     def camera_is_open(self) -> bool:
-        return self.camera._cap is not None and self.camera.status == "CONNECTED"
+        return self.camera._cap is not None and self.camera.status in (
+            "CONNECTED",
+            "LOADING TRACKING",
+        )
 
     def camera_status_text(self) -> str:
         if self.settings["input_mode"] == "keyboard":
             return "KEYBOARD MODE"
-        if not self.pose_tracker.available:
-            return "POSE OFF"
         return self.camera.status
 
     def _ensure_camera(self) -> bool:
-        """Open the camera and initialize pose tracking if needed."""
-        if not self.camera_is_open() and not self.camera.open(self.settings["camera_index"]):
-            return False
-        if not self.pose_tracker.available and not self._pose_init_started:
-            self._pose_init_started = True
-            self.pose_tracker.initialize()
-        return True
+        """Request device/model work without blocking a menu or render frame."""
+        self.camera.request_open(int(self.settings["camera_index"]))
+        return self.camera_is_open() and self.pose_tracker.available
 
     # ------------------------------------------------------------------
     # the camera -> TrackingData pipeline
     # ------------------------------------------------------------------
     def poll_camera(self, dt: float) -> TrackingData:
         """Fetch latest frame and pose from the background vision thread."""
-        ok, frame, pose = self.camera.read_latest()
+        sample = self.camera.read_sample() if hasattr(self.camera, "read_sample") else None
+        self._sample_is_new = False
+        if isinstance(sample, CameraSample):
+            if time.monotonic() - sample.captured_at > config.POSE_SAMPLE_MAX_AGE:
+                return self._missing_tracking(dt)
+            if sample.frame_id == getattr(self, "_last_sample_id", -1):
+                self.tracking = replace(
+                    self.tracking,
+                    left_punch=False,
+                    right_punch=False,
+                    left_haymaker=False,
+                    right_haymaker=False,
+                    charge_completed=False,
+                )
+                self.last_tracking = self.tracking
+                return self.tracking
+            self._last_sample_id = sample.frame_id
+            previous = getattr(self, "_last_sample_time", None)
+            dt = sample.captured_at - previous if previous is not None else 1 / 30
+            if dt > config.TRACKING_LOST_GRACE or self._pose_gone:
+                self.gestures.update(PoseData(present=False), 0, self.calibrator.existing)
+                dt = 1 / 30
+            dt = max(0.001, min(config.TRACKING_LOST_GRACE, dt))
+            self._last_sample_time = sample.captured_at
+            self._sample_dt = dt
+            self._sample_is_new = True
+            now = sample.captured_at
+            frame, pose = sample.frame, sample.pose
+            ok = self.camera._cap is not None
+        else:
+            # Compatibility for old external callers and injected camera fixtures.
+            ok, frame, pose = self.camera.read_latest()
+            now = time.monotonic()
+            self._sample_is_new = True
+            self._sample_dt = dt
         self.last_tracking = self.tracking
         if not ok:
-            self._pose_gone = True
-            self.tracking = TrackingData.empty()
-            return self.tracking
-
+            return self._missing_tracking(dt)
         self.last_camera_frame = frame
         self.last_pose = pose
 
-        if pose is not None and pose.present and pose.body_confidence >= config.POSE_MIN_BODY_CONFIDENCE:
+        if (
+            pose is not None
+            and pose.present
+            and pose.body_confidence >= config.POSE_MIN_BODY_CONFIDENCE
+        ):
             self._pose_gone = False
             self._tracking_lost_time = 0.0
 
             # gestures
-            self.gestures.update(pose, dt, self.calibrator.existing)
+            self.gestures.update(pose, dt, self.calibrator.existing, now=now)
             arms_active = self._arms_active(pose)
             if arms_active:
                 self._depth_freeze_remaining = config.TRACKING_PUNCH_RECOVERY
@@ -181,36 +227,56 @@ class Game:
                 self._depth_freeze_remaining = max(0.0, self._depth_freeze_remaining - dt)
             freeze_depth = arms_active or self._depth_freeze_remaining > 0.0
 
-            torso_landmarks = [pose.lm(index) for index in (
-                LM_LEFT_SHOULDER, LM_RIGHT_SHOULDER, LM_LEFT_HIP, LM_RIGHT_HIP)]
-            if any(lm is None or lm[3] < config.POSE_MIN_LANDMARK_VIS
-                   for lm in torso_landmarks):
+            torso_landmarks = [
+                pose.lm(index)
+                for index in (LM_LEFT_SHOULDER, LM_RIGHT_SHOULDER, LM_LEFT_HIP, LM_RIGHT_HIP)
+            ]
+            if any(lm is None or lm[3] < config.POSE_MIN_LANDMARK_VIS for lm in torso_landmarks):
                 freeze_depth = True
 
             ratio, level, scale = self.distance.update(
-                pose, dt, torso_only=True, freeze=freeze_depth)
-            self._update_tracking_data(pose, ratio, level, scale, dt,
-                                       freeze_depth=freeze_depth)
-        else:
-            self._pose_gone = True
-            self._tracking_lost_time += dt
-            empty_pose = PoseData(present=False)
-            self.gestures.update(empty_pose, dt, self.calibrator.existing)
-            self.tracking = TrackingData(
-                present=False,
-                horizontal_position=self._smooth_x,
-                distance_ratio=1.0,
-                distance_level="MEDIUM",
-                player_scale=1.0,
-                pose_present=False,
+                pose, dt, torso_only=True, freeze=freeze_depth
             )
+            self._update_tracking_data(pose, ratio, level, scale, dt, freeze_depth=freeze_depth)
+        else:
+            return self._missing_tracking(dt)
+        if isinstance(sample, CameraSample):
+            self.tracking.sample_id = sample.frame_id
+            self.tracking.sample_time = sample.captured_at
+        return self.tracking
+
+    def _missing_tracking(self, dt):
+        self._pose_gone = True
+        self._tracking_lost_time += dt
+        self.gestures.update(PoseData(present=False), 0, self.calibrator.existing)
+        self.last_pose = PoseData(present=False)
+        self.tracking = replace(
+            self.tracking,
+            present=False,
+            pose_present=False,
+            left_punch=False,
+            right_punch=False,
+            left_haymaker=False,
+            right_haymaker=False,
+            charge_completed=False,
+            guard=False,
+            hands_up=False,
+            is_charging=False,
+            charge_progress=0.0,
+        )
+        self.last_tracking = self.tracking
         return self.tracking
 
     def _arms_active(self, pose) -> bool:
         """Whether arm motion can corrupt shoulder-based measurements."""
-        if (self.gestures.guard or self.gestures.left_punch or
-                self.gestures.right_punch or self.gestures.left_haymaker or
-                self.gestures.right_haymaker or self.gestures.is_charging):
+        if (
+            self.gestures.guard
+            or self.gestures.left_punch
+            or self.gestures.right_punch
+            or self.gestures.left_haymaker
+            or self.gestures.right_haymaker
+            or self.gestures.is_charging
+        ):
             return True
         left_wrist = pose.lm(LM_LEFT_WRIST)
         right_wrist = pose.lm(LM_RIGHT_WRIST)
@@ -218,17 +284,25 @@ class Game:
         right_shoulder = pose.lm(LM_RIGHT_SHOULDER)
         # Detect a raised or extending arm before the punch event fires.
         # Requiring both hands lost protection when one wrist was occluded.
-        for wrist, shoulder in ((left_wrist, left_shoulder),
-                                (right_wrist, right_shoulder)):
-            if (wrist is not None and shoulder is not None and
-                    min(wrist[3], shoulder[3]) >= config.POSE_MIN_LANDMARK_VIS and
-                    wrist[1] <= shoulder[1] + pose.torso_height * 0.5):
+        for wrist, shoulder in ((left_wrist, left_shoulder), (right_wrist, right_shoulder)):
+            if (
+                wrist is not None
+                and shoulder is not None
+                and min(wrist[3], shoulder[3]) >= config.POSE_MIN_LANDMARK_VIS
+                and wrist[1] <= shoulder[1] + pose.torso_height * 0.5
+            ):
                 return True
         return False
 
-    def _update_tracking_data(self, pose, ratio: float, level: str,
-                              scale: float, dt: Optional[float] = None,
-                              freeze_depth: bool = False) -> None:
+    def _update_tracking_data(
+        self,
+        pose,
+        ratio: float,
+        level: str,
+        scale: float,
+        dt: Optional[float] = None,
+        freeze_depth: bool = False,
+    ) -> None:
         # horizontal position = mirrored lateral (body center) + depth
         # (calibration-relative distance). The player faces the camera, so
         # stepping right means the body moves to image-left -> mirror it.
@@ -243,15 +317,16 @@ class Game:
             self._resting_lateral = lateral
 
         lateral_delta = self._apply_deadband(
-            lateral - self._resting_lateral,
-            config.TRACKING_LATERAL_DEADBAND)
+            lateral - self._resting_lateral, config.TRACKING_LATERAL_DEADBAND
+        )
         if freeze_depth:
             # Preserve the last trustworthy distance component.  Resetting
             # it to zero would itself make the boxer dash during a punch.
             depth_delta = self._stable_depth_delta
         else:
             depth_delta = self._apply_deadband(
-                ratio - self._resting_ratio, config.TRACKING_DEPTH_DEADBAND)
+                ratio - self._resting_ratio, config.TRACKING_DEPTH_DEADBAND
+            )
             self._stable_depth_delta = depth_delta
         target = config.DEPTH_NEUTRAL_HP
         target += lateral_delta * self.settings["sensitivity"]
@@ -264,7 +339,8 @@ class Game:
         frame_dt = self.dt if dt is None else dt
         smooth = max(0.0, min(1.0, self.settings["smoothing"]))
         response_time = config.TRACKING_RESPONSE_TIME + smooth * (
-            config.TRACKING_RESPONSE_TIME_MAX - config.TRACKING_RESPONSE_TIME)
+            config.TRACKING_RESPONSE_TIME_MAX - config.TRACKING_RESPONSE_TIME
+        )
         alpha = 1.0 - pow(2.718281828459045, -max(0.0, frame_dt) / response_time)
         self._smooth_x += (target - self._smooth_x) * alpha
 
@@ -277,6 +353,7 @@ class Game:
             right_punch=self.gestures.right_punch,
             left_haymaker=self.gestures.left_haymaker,
             right_haymaker=self.gestures.right_haymaker,
+            charge_completed=self.gestures.charge_completed,
             is_charging=self.gestures.is_charging,
             is_charged=self.gestures.is_charged,
             charge_progress=self.gestures.charge_progress,
@@ -287,13 +364,16 @@ class Game:
             pose_present=True,
             frame_w=pose.frame_w,
             frame_h=pose.frame_h,
-            debug={"left_punch": self.gestures.left_punch,
-                   "right_punch": self.gestures.right_punch,
-                   "guard": self.gestures.guard,
-                   "charging": self.gestures.is_charging,
-                   "charged": self.gestures.is_charged},
+            debug={
+                "left_punch": self.gestures.left_punch,
+                "right_punch": self.gestures.right_punch,
+                "guard": self.gestures.guard,
+                "charging": self.gestures.is_charging,
+                "charged": self.gestures.is_charged,
+            },
         )
         self.tracking = tracking
+        self.last_tracking = tracking
 
     @staticmethod
     def _apply_deadband(value: float, width: float) -> float:
@@ -305,9 +385,12 @@ class Game:
         """Hips are the stable lateral anchor; arms never affect movement."""
         left_hip = pose.lm(LM_LEFT_HIP)
         right_hip = pose.lm(LM_RIGHT_HIP)
-        if (left_hip is not None and right_hip is not None and
-                left_hip[3] >= config.POSE_MIN_LANDMARK_VIS and
-                right_hip[3] >= config.POSE_MIN_LANDMARK_VIS):
+        if (
+            left_hip is not None
+            and right_hip is not None
+            and left_hip[3] >= config.POSE_MIN_LANDMARK_VIS
+            and right_hip[3] >= config.POSE_MIN_LANDMARK_VIS
+        ):
             self._last_lateral = (left_hip[0] + right_hip[0]) / 2.0
             return self._last_lateral
         # If tracked hips disappear during a punch, keep their last position
@@ -348,49 +431,51 @@ class Game:
 
     @property
     def tracking_lost_warning(self) -> bool:
-        return (self.settings["input_mode"] == "camera" and
-                self._pose_gone and
-                self._tracking_lost_time > config.TRACKING_LOST_WARNING)
+        return (
+            self.settings["input_mode"] == "camera"
+            and self._pose_gone
+            and self._tracking_lost_time > config.TRACKING_LOST_WARNING
+        )
 
     # ------------------------------------------------------------------
     # settings application (called by the settings screen)
     # ------------------------------------------------------------------
     def apply_settings_changes(self) -> None:
         s = self.settings
-        self.audio.set_volumes(s["music_volume"], s["sfx_volume"])
+        old = self._settings_applied
+        changed = {key for key in s if old.get(key) != s[key]}
+        if changed & {"music_volume", "sfx_volume"}:
+            self.audio.set_volumes(s["music_volume"], s["sfx_volume"])
         self.gestures.set_punch_sensitivity(s["punch_sensitivity"])
+        self.gestures.line_reach = max(0.55, min(0.90, float(s.get("punch_line_reach", 0.75))))
         self.distance.set_sensitivity(s["distance_sensitivity"])
         calibration = CalibrationData.from_dict(s.get("calibration"))
         self.calibrator.existing = calibration
         if self.distance.set_calibration(calibration):
-            # A real recalibration changes what "resting" means.  The next
-            # valid pose establishes the new reference without a teleport.
-            self._resting_ratio = None
-            self._resting_lateral = None
-            self._stable_depth_delta = 0.0
-            self._depth_freeze_remaining = 0.0
-        if s["input_mode"] == "keyboard":
-            self.camera.release()
+            self.reset_tracking_position()
+        if changed & {"input_mode", "camera_index"}:
+            self.camera.release_async()
+            self.camera.index = int(s["camera_index"])
+            self._last_sample_id = -1
+            self._last_sample_time = None
+            self.keyboard.reset()
         if s["fullscreen"] != self._fullscreen:
             self._fullscreen = bool(s["fullscreen"])
             self._apply_window_mode()
-        if s.get("camera_index") != self.camera.index:
-            self.camera.release()
-            self.camera.index = int(s["camera_index"])
-        self.save_manager.save_settings()
+        self.debug_overlay = bool(s.get("debug_mode"))
+        self._settings_applied = dict(s)
+        if changed:
+            self.save_manager.schedule_settings()
 
     # ------------------------------------------------------------------
     # game flow transitions
     # ------------------------------------------------------------------
     def start_new_game(self, slot_number: Optional[int] = None) -> None:
         slot = slot_number or int(self.settings.get("last_slot", 1))
+        self.settings["last_slot"] = slot
         self.progression = Progression()
         self.level_manager = LevelManager(self.progression)
         if self.settings["input_mode"] == "camera":
-            if not self._ensure_camera():
-                from ui.screens import CameraErrorScreen
-                self.states.push(CameraErrorScreen(self))
-                return
             self.start_calibration()
         else:
             self._enter_fight()
@@ -408,39 +493,40 @@ class Game:
         self.level_manager = LevelManager(self.progression)
         self.apply_settings_changes()
         if self.settings["input_mode"] == "camera":
-            if not self._ensure_camera():
-                from ui.screens import CameraErrorScreen
-                self.states.push(CameraErrorScreen(self))
-                return
             self.start_calibration()
         else:
             self._enter_fight()
 
     def show_load_game(self) -> None:
         from ui.screens import LoadGameScreen
+
         self.states.push(LoadGameScreen(self))
 
     def show_settings(self, back_to: str = "main_menu") -> None:
         from ui.settings import SettingsScene
+
         self.states.push(SettingsScene(self, back_to=back_to))
 
     def show_level_select(self) -> None:
         from ui.screens import LevelSelectScreen
+
         self.states.push(LevelSelectScreen(self))
 
     def show_camera_debug(self, back_to: str = "settings") -> None:
         from ui.screens import CameraDebugView
-        self.states.push(CameraDebugView(self, back_to=back_to))
+
+        self.states.push(CameraDebugView(self, back_to=back_to, return_scene=self.states.current))
 
     def start_calibration(self, from_settings: bool = False) -> None:
-        self._ensure_camera()
         from ui.screens import CalibrationScreen
+
         self.states.push(CalibrationScreen(self, from_settings=from_settings))
 
     def on_calibration_done(self, skip: bool = False, back: bool = False) -> None:
-        # calibration data is already stored in settings when completed
+        screen = self.states.current
+        from_settings = bool(getattr(screen, "from_settings", False))
         self.states.pop()
-        if back:
+        if back or from_settings:
             return
         if skip and not self.settings.get("calibration"):
             self.settings["calibration"] = CalibrationData().to_dict()
@@ -449,11 +535,16 @@ class Game:
 
     def _enter_fight(self) -> None:
         if self.settings["input_mode"] == "camera" and not self._ensure_camera():
-            from ui.screens import CameraErrorScreen
-            self.states.push(CameraErrorScreen(self))
+            from ui.screens import CalibrationScreen
+
+            self.states.replace(CalibrationScreen(self))
             return
         from gameplay.fight_scene import FightScene
-        self.states.push(FightScene(self))
+
+        self.keyboard.reset(config.DEPTH_NEUTRAL_HP)
+        self.gestures = GestureDetector(self.settings["punch_sensitivity"])
+        self.gestures.line_reach = self.settings.get("punch_line_reach", 0.75)
+        self.states.replace(FightScene(self))
 
     def fight_opponent(self, index: int) -> None:
         self.progression.start_fight(index)
@@ -470,7 +561,10 @@ class Game:
 
     def to_main_menu(self) -> None:
         self.states.clear()
+        self.keyboard.reset()
+        self.camera.release_async()
         from ui.main_menu import MainMenu
+
         self.states.push(MainMenu(self))
 
     def save_current_progress(self) -> None:
@@ -505,14 +599,20 @@ class Game:
                             self.settings["debug_mode"] = self.debug_overlay
                         elif key == "f11":
                             self.toggle_fullscreen()
+                    if (
+                        event.type in (pygame.KEYDOWN, pygame.KEYUP)
+                        and self.states.current
+                        and self.states.current.name == "gameplay"
+                    ):
                         self.keyboard.handle_event(event)
                     self.states.handle_event(event)
 
+                self.save_manager.flush_settings()
                 self.states.update(dt)
 
                 # ---- render (shake offset applied by blitting) ----------
                 self.canvas.fill(config.COLORS["charcoal_dark"])
-                scratch = pygame.Surface((config.BASE_WIDTH, config.BASE_HEIGHT))
+                scratch = self._scene_surface
                 self.states.draw(scratch)
                 shake_x, shake_y = self._current_shake()
                 self.canvas.blit(scratch, (int(shake_x), int(shake_y)))
@@ -525,14 +625,16 @@ class Game:
             self.shutdown()
 
     def _current_shake(self) -> tuple:
+        if not self.states.current or self.states.current.name != "gameplay":
+            return (0.0, 0.0)
         # the fight scene owns the shake value; read it if present
         for scene in self.states._stack:
             if getattr(scene, "name", "") == "gameplay":
                 shake = scene.combat.shake
                 if shake > 0:
                     import random
-                    return (random.uniform(-shake, shake),
-                            random.uniform(-shake, shake))
+
+                    return (random.uniform(-shake, shake), random.uniform(-shake, shake))
         return (0.0, 0.0)
 
     def _present(self) -> None:
@@ -550,8 +652,7 @@ class Game:
 
     def _logical_mouse_event(self, event: pygame.event.Event) -> pygame.event.Event:
         """Map physical window mouse positions onto the 1280x720 canvas."""
-        if event.type not in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN,
-                              pygame.MOUSEBUTTONUP):
+        if event.type not in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
             return event
         if not hasattr(event, "pos"):
             return event
@@ -567,8 +668,7 @@ class Game:
         scaled_h = config.BASE_HEIGHT * scale
         offset_x = (width - scaled_w) / 2.0
         offset_y = (height - scaled_h) / 2.0
-        return ((position[0] - offset_x) / scale,
-                (position[1] - offset_y) / scale)
+        return ((position[0] - offset_x) / scale, (position[1] - offset_y) / scale)
 
     # ------------------------------------------------------------------
     # debug overlay (F3)
@@ -594,7 +694,8 @@ class Game:
             f"POSE: {'OK' if (pose and pose.present) else 'NONE'}",
             f"BODY CONFIDENCE: {t.body_confidence:.2f}" if t else "BODY CONFIDENCE: -",
             f"PLAYER X: {t.horizontal_position:.2f}" if t else "PLAYER X: -",
-            f"DISTANCE: {t.distance_level}" if t else "DISTANCE: -",            f"LEFT PUNCH: {bool(t.left_punch)}" if t else "LEFT PUNCH: -",
+            f"DISTANCE: {t.distance_level}" if t else "DISTANCE: -",
+            f"LEFT PUNCH: {bool(t.left_punch)}" if t else "LEFT PUNCH: -",
             f"RIGHT PUNCH: {bool(t.right_punch)}" if t else "RIGHT PUNCH: -",
             f"LEFT HAYMAKER: {bool(t.left_haymaker)}" if t else "LEFT HAYMAKER: -",
             f"RIGHT HAYMAKER: {bool(t.right_haymaker)}" if t else "RIGHT HAYMAKER: -",
@@ -625,10 +726,3 @@ class Game:
         self.pose_tracker.close()
         pygame.quit()
         log.info("Game shut down cleanly.")
-
-
-
-
-
-
-

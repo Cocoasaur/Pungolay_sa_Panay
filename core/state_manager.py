@@ -15,6 +15,7 @@ class Scene:
     """Base class for every screen (menu, calibration, gameplay, ...)."""
 
     name = "scene"
+    transparent = False
 
     def __init__(self, game: "Game") -> None:  # noqa: F821 (type name)
         self.game = game
@@ -76,5 +77,17 @@ class StateManager:
 
     def draw(self, surface: pygame.Surface) -> None:
         # draw every scene below the top one too (pause over gameplay etc.)
-        for scene in self._stack:
+        start = 0
+        for i in range(len(self._stack)-1, -1, -1):
+            if not self._stack[i].transparent:
+                start = i
+                break
+        for scene in self._stack[start:]:
             scene.draw(surface)
+
+    def return_to(self, scene):
+        if scene in self._stack:
+            while self.current is not scene:
+                self.pop()
+            return True
+        return False

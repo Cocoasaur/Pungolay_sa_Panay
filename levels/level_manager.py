@@ -10,6 +10,7 @@ from typing import Dict, Optional
 import pygame
 
 import config
+from ui.assets import load_image
 from gameplay.progression import Progression
 from levels.locations import build_arena_background
 
@@ -26,11 +27,12 @@ class LevelManager:
             background = build_arena_background(config.LOCATIONS[location_id])
             image_path = os.path.join(config.LEVELS_DIR, f"{location_id}.png")
             if os.path.isfile(image_path):
-                image = pygame.image.load(image_path).convert_alpha()
-                if image.get_size() != background.get_size():
+                image = load_image(image_path, (config.BASE_WIDTH, config.BASE_HEIGHT))
+                if image is not None and image.get_size() != background.get_size():
                     image = pygame.transform.smoothscale(
                         image, background.get_size())
-                background.blit(image, (0, 0))
+                if image is not None:
+                    background.blit(image, (0, 0))
             self._backgrounds[location_id] = background
         return self._backgrounds[location_id]
 

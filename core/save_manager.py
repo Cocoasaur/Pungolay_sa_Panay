@@ -23,6 +23,7 @@ class SaveManager:
         os.makedirs(config.SAVES_DIR, exist_ok=True)
         self.settings: Dict[str, Any] = dict(config.DEFAULT_SETTINGS)
         self._load_settings()
+        self._settings_due = None
 
     # ------------------------------------------------------------------
     # settings.json
@@ -35,7 +36,15 @@ class SaveManager:
                     self.settings[key] = data[key]
 
     def save_settings(self) -> None:
+        self._settings_due = None
         self._write_json(config.SETTINGS_PATH, self.settings)
+
+    def schedule_settings(self):
+        self._settings_due = time.monotonic() + 0.25
+
+    def flush_settings(self, force=False):
+        if self._settings_due is not None and (force or time.monotonic() >= self._settings_due):
+            self.save_settings()
 
     # ------------------------------------------------------------------
     # save slots

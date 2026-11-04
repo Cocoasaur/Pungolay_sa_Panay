@@ -13,6 +13,7 @@ import os
 import pygame
 
 import config
+from ui.assets import load_image
 from core.state_manager import Scene
 from ui.fonts import render_spaced
 from ui.sprites import draw_boxer
@@ -43,8 +44,8 @@ class MainMenu(Scene):
         self.background = build_menu_background()
         if (not os.path.isfile(config.MENU_BACKGROUND_PATH)
                 and os.path.isfile(config.MENU_IMAGE_PATH)):
-            image = pygame.image.load(config.MENU_IMAGE_PATH).convert_alpha()
-            if image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
+            image = load_image(config.MENU_IMAGE_PATH, (config.BASE_WIDTH, config.BASE_HEIGHT))
+            if image is not None and image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
                 image = pygame.transform.smoothscale(
                     image, (config.BASE_WIDTH, config.BASE_HEIGHT))
             self.menu_overlay = image

@@ -25,7 +25,7 @@ from ui.sprites import draw_boxer
 
 C = config.COLORS
 
-FIGHT_OVER_DELAY = 1.6     # seconds the KO pose is shown before the screen
+FIGHT_OVER_DELAY = 1.6  # seconds the KO pose is shown before the screen
 INTRO_BANNER_TIME = 2.8
 
 
@@ -54,8 +54,7 @@ class FightScene(Scene):
         # Keep camera tracking aligned with this spawn instead of carrying a
         # target from a menu, calibration screen, or the preceding opponent.
         game.reset_tracking_position()
-        self.enemy = Enemy(game.progression.opponent,
-                           x=config.BASE_WIDTH // 2 + 180)
+        self.enemy = Enemy(game.progression.opponent, x=config.BASE_WIDTH // 2 + 180)
         self.ai = EnemyAI(self.enemy, self.player)
         self.combat.reset()
         self.intro_banner = game.level_manager.intro_banner()
@@ -73,6 +72,11 @@ class FightScene(Scene):
     def enter(self) -> None:
         self._reset_for_opponent()
 
+    def exit(self):
+        if self.player is not None:
+            self.player.ability_ready = False
+        self.game.keyboard.reset()
+
     # ------------------------------------------------------------------
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN:
@@ -82,6 +86,7 @@ class FightScene(Scene):
                     return
                 self.game.audio.play("menu_move")
                 from ui.pause_menu import PauseMenu
+
                 self.game.states.push(PauseMenu(self.game))
 
     # ------------------------------------------------------------------
@@ -94,6 +99,10 @@ class FightScene(Scene):
             self.intro_timer -= dt
             return
 
+        # Completion is an input edge; preserve it even during hit stop.
+        if tracking.charge_completed:
+            self.player.ability_ready = True
+
         # fighters freeze during the hit-stop beat
         if self.combat.hitstop > 0:
             self.combat.update(dt, self.player, self.enemy)
@@ -103,7 +112,10 @@ class FightScene(Scene):
         self.player.update(dt, tracking, now)
         self.enemy.update(dt, now)
         if self.ai is not None and not self.combat.fight_over:
+            previous_enemy_state = self.enemy.state
             self.ai.update(dt, self.player.state in ("punch_l", "punch_r"))
+            if self.enemy.state != previous_enemy_state:
+                self.enemy.action_t = 0.0
 
         # -- combat ------------------------------------------------------
         self.combat.resolve(self.player, self.enemy, dt)
@@ -131,17 +143,21 @@ class FightScene(Scene):
                 self._finish_fight()
 
     def _finish_fight(self) -> None:
+        self.player.ability_ready = False
         game = self.game
         if self.combat.winner == "player":
             from ui.screens import VictoryScreen
-            result = VictoryScreen(game, enemy_name=self.enemy.name,
-                                   is_final=game.progression.is_final_fight)
+
+            result = VictoryScreen(
+                game, enemy_name=self.enemy.name, is_final=game.progression.is_final_fight
+            )
             game.progression.record_victory()
             game.save_current_progress()
             game.states.push(result)
         else:
             game.progression.record_defeat()
             from ui.screens import DefeatScreen
+
             game.states.push(DefeatScreen(game))
 
     # ------------------------------------------------------------------
@@ -219,11 +235,12 @@ class FightScene(Scene):
         center_x = config.BASE_WIDTH // 2
 
         round_text = f["medium"].render(
-            f"ROUND {banner['round']}", True, C["warn_yellow"])
+            f"STARTING IN {max(1, int(self.intro_timer + 0.999))}", True, C["warn_yellow"]
+        )
         name_text = f["big"].render(banner["opponent"].upper(), True, C["title_white"])
         loc_text = f["small"].render(
-            f"{banner['location'].upper()}  -  {banner['subtitle'].upper()}",
-            True, C["title_white"])
+            f"{banner['location'].upper()}  -  {banner['subtitle'].upper()}", True, C["title_white"]
+        )
 
         panel = pygame.Surface((560, 220), pygame.SRCALPHA)
         panel.fill((10, 9, 8, 210))
@@ -233,12 +250,10 @@ class FightScene(Scene):
         surface.blit(round_text, round_text.get_rect(center=(center_x, 255)))
         surface.blit(name_text, name_text.get_rect(center=(center_x, 320)))
         location_pill = pygame.Rect(
-            center_x - loc_text.get_width() // 2 - 18, 371,
-            loc_text.get_width() + 36, 38)
-        pygame.draw.rect(surface, (28, 24, 20), location_pill,
-                         border_radius=8)
-        pygame.draw.rect(surface, C["warm_glow"], location_pill,
-                         width=2, border_radius=8)
+            center_x - loc_text.get_width() // 2 - 18, 371, loc_text.get_width() + 36, 38
+        )
+        pygame.draw.rect(surface, (28, 24, 20), location_pill, border_radius=8)
+        pygame.draw.rect(surface, C["warm_glow"], location_pill, width=2, border_radius=8)
         surface.blit(loc_text, loc_text.get_rect(center=(center_x, 390)))
 
     def _draw_camera_preview(self, surface: pygame.Surface) -> None:
@@ -249,16 +264,15 @@ class FightScene(Scene):
         frame = game.last_camera_frame
         if game.last_pose is not None and game.last_pose.present:
             frame = game.pose_tracker.draw_debug_frame(frame, game.last_pose)
-            frame = game.gestures.draw_punch_boundary(frame, game.last_pose,
-                                                      game.calibrator.existing)
+            frame = game.gestures.draw_punch_boundary(
+                frame, game.last_pose, game.calibrator.existing
+            )
         rgb = frame[:, :, ::-1]
-        camera_surface = pygame.image.frombuffer(
-            rgb.copy(), (rgb.shape[1], rgb.shape[0]), "RGB")
+        camera_surface = pygame.image.frombuffer(rgb.copy(), (rgb.shape[1], rgb.shape[0]), "RGB")
         preview_size = (256, 144)
         preview = pygame.transform.scale(camera_surface, preview_size)
         x, y = 18, 82
-        panel = pygame.Rect(x - 4, y - 22, preview_size[0] + 8,
-                            preview_size[1] + 26)
+        panel = pygame.Rect(x - 4, y - 22, preview_size[0] + 8, preview_size[1] + 26)
         pygame.draw.rect(surface, C["panel"], panel)
         pygame.draw.rect(surface, C["border"], panel, 1)
         label = game.fonts["tiny"].render("CAMERA PREVIEW", True, C["text"])
@@ -267,7 +281,7 @@ class FightScene(Scene):
 
     def _draw_tutorial(self, surface: pygame.Surface) -> None:
         f = self.game.fonts
-        x, y = 24, 84
+        x, y = (300, 84) if self.game.settings["input_mode"] == "camera" else (24, 84)
         panel = pygame.Surface((360, 200), pygame.SRCALPHA)
         panel.fill((10, 9, 8, 200))
         surface.blit(panel, (x, y))
@@ -284,6 +298,6 @@ class FightScene(Scene):
 
     @staticmethod
     def _draw_hitbox(surface, hitbox, color, width: int = 2) -> None:
-        pygame.draw.rect(surface, color,
-                         (int(hitbox.x), int(hitbox.y),
-                          int(hitbox.w), int(hitbox.h)), width)
+        pygame.draw.rect(
+            surface, color, (int(hitbox.x), int(hitbox.y), int(hitbox.w), int(hitbox.h)), width
+        )

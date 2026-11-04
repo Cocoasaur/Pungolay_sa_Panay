@@ -7,6 +7,7 @@ import os
 import pygame
 
 import config
+from ui.assets import load_image
 from core.state_manager import Scene
 
 C = config.COLORS
@@ -17,6 +18,7 @@ PAUSE_ITEMS = ["RESUME", "RETRY FIGHT", "LEVEL SELECT", "SETTINGS",
 
 class PauseMenu(Scene):
     name = "pause"
+    transparent = True
 
     def __init__(self, game) -> None:
         super().__init__(game)
@@ -25,9 +27,8 @@ class PauseMenu(Scene):
         self._rects = []
         self.menu_overlay = None
         if os.path.isfile(config.PAUSE_MENU_IMAGE_PATH):
-            image = pygame.image.load(
-                config.PAUSE_MENU_IMAGE_PATH).convert_alpha()
-            if image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
+            image = load_image(config.PAUSE_MENU_IMAGE_PATH, (config.BASE_WIDTH, config.BASE_HEIGHT))
+            if image is not None and image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
                 image = pygame.transform.smoothscale(
                     image, (config.BASE_WIDTH, config.BASE_HEIGHT))
             self.menu_overlay = image

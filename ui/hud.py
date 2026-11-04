@@ -7,6 +7,7 @@ import os
 import pygame
 
 import config
+from ui.assets import load_image
 from gameplay.enemy import Enemy
 from gameplay.player import Player
 
@@ -18,8 +19,8 @@ class HUD:
         self.fonts = fonts
         self.overlay = None
         if os.path.isfile(config.HUD_IMAGE_PATH):
-            image = pygame.image.load(config.HUD_IMAGE_PATH).convert_alpha()
-            if image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
+            image = load_image(config.HUD_IMAGE_PATH, (config.BASE_WIDTH, config.BASE_HEIGHT))
+            if image is not None and image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
                 image = pygame.transform.smoothscale(
                     image, (config.BASE_WIDTH, config.BASE_HEIGHT))
             self.overlay = image
@@ -64,24 +65,30 @@ class HUD:
         surface.blit(center, center_rect)
 
         # ---- charging indicator ---------------------------------------
-        if tracking and tracking.is_charging and not fight_over and player.state != "ko":
+        if (player.is_charging or player.ability_ready) and not fight_over and player.state != "ko":
             charge_w = 200
             charge_h = 14
             cx = config.BASE_WIDTH // 2 - charge_w // 2
             cy = 70
             pygame.draw.rect(surface, C["stamina_empty"], (cx, cy, charge_w, charge_h))
             
-            fill_w = int(charge_w * tracking.charge_progress)
-            color = C["warm_glow"] if tracking.is_charged else C["stamina_amber"]
+            fill_w = int(charge_w * player.charge_progress)
+            color = C["warm_glow"] if player.ability_ready else C["stamina_amber"]
             
             if fill_w > 0:
                 pygame.draw.rect(surface, color, (cx, cy, fill_w, charge_h))
             pygame.draw.rect(surface, C["border"], (cx, cy, charge_w, charge_h), 1)
             
-            label_text = "HAYMAKER READY!" if tracking.is_charged else "CHARGING..."
+            label_text = "HAYMAKER READY!" if player.ability_ready else "CHARGING..."
             label_surf = small.render(label_text, True, color)
             surface.blit(label_surf, label_surf.get_rect(midbottom=(config.BASE_WIDTH // 2, cy - 4)))
 
+        if not fight_over and player.state in ("guard", "punch_l", "punch_r"):
+            feedback = "BLOCK" if player.guarding else "HAYMAKER!" if player.is_haymaker_punch else "LEFT PUNCH" if player.state == "punch_l" else "RIGHT PUNCH"
+            label = small.render(feedback, True, C["title_white"])
+            panel = label.get_rect(midbottom=(int(player.x), int(config.GROUND_Y-player.body_h*player.scale-12))).inflate(16,8)
+            pygame.draw.rect(surface, (20,18,16), panel, border_radius=4)
+            surface.blit(label,label.get_rect(center=panel.center))
         # ---- distance chip --------------------------------------------
         chip_color = {"CLOSE": C["accent_red_bright"],
                       "MEDIUM": C["warn_yellow"],
