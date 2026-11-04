@@ -283,7 +283,13 @@ PUNCH_ARM_EXTENDED = 0.30        # elbow-wrist distance must exceed this
 PUNCH_COOLDOWN = 0.35            # seconds between punches per hand
 PUNCH_VELOCITY_THRESHOLD = 0.8   # minimum velocity magnitude for punch detection
 PUNCH_CONFIRMATION_TIME = 0.05   # seconds a punch condition must be met to trigger
-PUNCH_LINE_REACH = 0.60          # fraction of calibrated arm length ahead of torso
+PUNCH_LINE_REACH = 0.75          # fraction of calibrated arm length ahead of torso
+ENEMY_ATTACK_ACTIVE_TIME = 0.16
+ARM_FILTER_FAST = 0.012
+ARM_FILTER_SLOW = 0.045
+POSE_SAMPLE_MAX_AGE = 0.250
+ARM_LEFT_COLOR = (0, 210, 255)       # RGB cyan
+ARM_RIGHT_COLOR = (255, 140, 0)      # RGB orange
 PUNCH_LINE_REARM = 0.15          # hand must retract this far behind the punch line
 
 BLOCK_ENTER_THRESHOLD = 0.35     # max wrist-to-shoulder normalized distance to enter block
@@ -347,7 +353,8 @@ DEFAULT_SETTINGS = {
     "input_mode": "camera",          # "camera" | "keyboard"
     "sensitivity": 1.0,              # multiplies horizontal tracking speed
     "smoothing": 0.55,               # 0..1 (higher = smoother)
-    "punch_sensitivity": 1.0,        # >1 makes punches easier to trigger
+    "punch_sensitivity": 1.0,        # confidence (2D) / depth thresholds (3D)
+    "punch_line_reach": 0.75,        # calibrated arm fraction; independent of sensitivity
     "distance_sensitivity": 1.0,
     "fullscreen": FULLSCREEN_DEFAULT,
     "debug_mode": False,

@@ -67,7 +67,7 @@ class PunchBoundaryTests(unittest.TestCase):
     def test_line_works_when_facing_image_left(self):
         self.calibration.punch_direction = -1.0
         self.update(pose(), 3)
-        self.assertTrue(any(event[0] for event in self.update(pose(left_x=0.20), 3)))
+        self.assertTrue(any(event[0] for event in self.update(pose(left_x=0.18), 3)))
 
     def test_line_follows_translation_and_distance_without_punches(self):
         base = punch_boundary(pose(), self.calibration)
@@ -161,6 +161,7 @@ class PunchMovementTests(unittest.TestCase):
         game.reset_tracking_position()
         game.tracking = TrackingData.empty()
         game._tracking_lost_time = 0.0
+        game._pose_gone = True
         self.game = game
 
     def poll(self, data, frames=1):

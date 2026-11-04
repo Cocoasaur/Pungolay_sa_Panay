@@ -21,6 +21,8 @@ person's LEFT side appears on the RIGHT side of the frame).
 from __future__ import annotations
 
 import logging
+import math
+import time
 import os
 import sys
 import threading
@@ -48,28 +50,46 @@ LM_RIGHT_HIP = 24
 
 # Bones for the debug skeleton drawing (index pairs)
 SKELETON = [
-    (LM_NOSE, 9), (9, 10), (10, LM_RIGHT_SHOULDER),
-    (LM_NOSE, 8), (8, 7), (7, LM_LEFT_SHOULDER),
+    (LM_NOSE, 9),
+    (9, 10),
+    (10, LM_RIGHT_SHOULDER),
+    (LM_NOSE, 8),
+    (8, 7),
+    (7, LM_LEFT_SHOULDER),
     (LM_LEFT_SHOULDER, LM_RIGHT_SHOULDER),
-    (LM_LEFT_SHOULDER, LM_LEFT_ELBOW), (LM_LEFT_ELBOW, LM_LEFT_WRIST),
-    (LM_RIGHT_SHOULDER, LM_RIGHT_ELBOW), (LM_RIGHT_ELBOW, LM_RIGHT_WRIST),
-    (LM_LEFT_SHOULDER, LM_LEFT_HIP), (LM_RIGHT_SHOULDER, LM_RIGHT_HIP),
+    (LM_LEFT_SHOULDER, LM_LEFT_ELBOW),
+    (LM_LEFT_ELBOW, LM_LEFT_WRIST),
+    (LM_RIGHT_SHOULDER, LM_RIGHT_ELBOW),
+    (LM_RIGHT_ELBOW, LM_RIGHT_WRIST),
+    (LM_LEFT_SHOULDER, LM_LEFT_HIP),
+    (LM_RIGHT_SHOULDER, LM_RIGHT_HIP),
     (LM_LEFT_HIP, LM_RIGHT_HIP),
-    (LM_LEFT_HIP, 25), (25, 27), (27, 29), (29, 31),
-    (LM_RIGHT_HIP, 26), (26, 28), (28, 30), (30, 32),
+    (LM_LEFT_HIP, 25),
+    (25, 27),
+    (27, 29),
+    (29, 31),
+    (LM_RIGHT_HIP, 26),
+    (26, 28),
+    (28, 30),
+    (30, 32),
 ]
 
 # YOLO-pose COCO keypoint index -> MediaPipe index (only the ones we use)
 _COCO_TO_MP = {
     0: LM_NOSE,
-    5: LM_LEFT_SHOULDER, 6: LM_RIGHT_SHOULDER,
-    7: LM_LEFT_ELBOW, 8: LM_RIGHT_ELBOW,
-    9: LM_LEFT_WRIST, 10: LM_RIGHT_WRIST,
-    11: LM_LEFT_HIP, 12: LM_RIGHT_HIP,
+    5: LM_LEFT_SHOULDER,
+    6: LM_RIGHT_SHOULDER,
+    7: LM_LEFT_ELBOW,
+    8: LM_RIGHT_ELBOW,
+    9: LM_LEFT_WRIST,
+    10: LM_RIGHT_WRIST,
+    11: LM_LEFT_HIP,
+    12: LM_RIGHT_HIP,
 }
 
-_CV2_MODEL_URL = ("https://github.com/ultralytics/assets/releases/download/"
-                  "v8.3.0/yolo11n-pose.onnx")
+_CV2_MODEL_URL = (
+    "https://github.com/ultralytics/assets/releases/download/" "v8.3.0/yolo11n-pose.onnx"
+)
 
 # how long a single detect may take before it counts as a stall
 _DETECT_TIMEOUT = 0.6
@@ -87,13 +107,14 @@ class PoseData:
     the 2D (cv2) backend; `is_2d` tells gesture detection to use the 2D
     punch heuristic instead of the depth-based one.
     """
+
     present: bool
     landmarks: Dict[int, Tuple[float, float, float, float]] = field(default_factory=dict)
     body_confidence: float = 0.0
-    shoulder_width: float = 0.0     # normalized
-    torso_height: float = 0.0       # normalized
-    body_center_x: float = 0.5      # normalized
-    body_center_y: float = 0.5      # normalized
+    shoulder_width: float = 0.0  # normalized
+    torso_height: float = 0.0  # normalized
+    body_center_x: float = 0.5  # normalized
+    body_center_y: float = 0.5  # normalized
     frame_w: int = 0
     frame_h: int = 0
     is_2d: bool = False
@@ -114,6 +135,7 @@ class PoseTracker:
         self._landmarker = None
         self._net = None
         self._stalls = 0
+        self._last_filter_time = None
         self._smoothed_landmarks: Dict[int, Tuple[float, float, float, float]] = {}
 
     # ------------------------------------------------------------------
@@ -141,14 +163,19 @@ class PoseTracker:
     def _mediapipe_selftest_subprocess(self) -> bool:
         """Run the mediapipe self-test in a child process (it may hang)."""
         import subprocess
+
         cmd = [sys.executable, "-m", "camera.pose_selftest"]
         env = dict(os.environ)
         env["PYTHONPATH"] = config.BASE_DIR
         try:
             proc = subprocess.run(
-                cmd, cwd=config.BASE_DIR, env=env,
+                cmd,
+                cwd=config.BASE_DIR,
+                env=env,
                 timeout=config.POSE_SELFTEST_TIMEOUT,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             return proc.returncode == 0
         except Exception:  # noqa: BLE001
             return False
@@ -170,8 +197,7 @@ class PoseTracker:
 
             def build() -> None:
                 try:
-                    base = mp.BaseOptions(
-                        model_asset_path=self.model_path, delegate=delegate)
+                    base = mp.BaseOptions(model_asset_path=self.model_path, delegate=delegate)
                     opts = vision.PoseLandmarkerOptions(
                         base_options=base,
                         running_mode=vision.RunningMode.IMAGE,
@@ -191,8 +217,7 @@ class PoseTracker:
                 self._landmarker = result["landmarker"]
                 self.available = True
                 self.backend = "mediapipe"
-                log.info("Pose tracking initialized (mediapipe, %s delegate)",
-                         delegate_name)
+                log.info("Pose tracking initialized (mediapipe, %s delegate)", delegate_name)
                 return True
             if "error" in result:
                 self.error = f"{delegate_name} delegate failed: {result['error']}"
@@ -264,43 +289,41 @@ class PoseTracker:
             # the watchdog fired: this host is not safe for mediapipe
             self._stalls += 1
             if self._stalls >= _MEDIA_MPIPE_MAX_STALLS:
-                log.warning("MediaPipe detect stalled %d times; migrating to "
-                            "the OpenCV backend", self._stalls)
+                log.warning(
+                    "MediaPipe detect stalled %d times; migrating to " "the OpenCV backend",
+                    self._stalls,
+                )
                 self._close_mediapipe()
                 self._ensure_cv2()
             return empty
         self._stalls = 0
         return pose
 
-    def _detect_mediapipe(self, bgr_frame: np.ndarray,
-                          timeout: float) -> Optional[PoseData]:
+    def _detect_mediapipe(self, bgr_frame: np.ndarray, timeout: float) -> Optional[PoseData]:
         """Run one detect with a watchdog; None means the call stalled."""
         result: Dict[str, PoseData] = {}
 
         def run() -> None:
             try:
                 from mediapipe.tasks.python import vision
-                from mediapipe.tasks.python.vision.core.image import (
-                    Image, ImageFormat)
+                from mediapipe.tasks.python.vision.core.image import Image, ImageFormat
+
                 rgb = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
                 # Fresh Image per call: GPU tensors allow only a single write.
                 image = Image(image_format=ImageFormat.SRGB, data=rgb)
                 detected = self._landmarker.detect(image)
                 if not detected.pose_landmarks:
                     result["pose"] = PoseData(
-                        present=False,
-                        frame_w=bgr_frame.shape[1],
-                        frame_h=bgr_frame.shape[0])
+                        present=False, frame_w=bgr_frame.shape[1], frame_h=bgr_frame.shape[0]
+                    )
                     return
                 landmarks = detected.pose_landmarks[0]
                 out: Dict[int, Tuple[float, float, float, float]] = {}
                 for index, lm in enumerate(landmarks):
                     visibility = getattr(lm, "visibility", None)
                     visibility = float(visibility) if visibility is not None else 0.0
-                    out[index] = (float(lm.x), float(lm.y), float(lm.z),
-                                  visibility)
-                result["pose"] = self._derive_metrics(
-                    out, bgr_frame.shape[1], bgr_frame.shape[0])
+                    out[index] = (float(lm.x), float(lm.y), float(lm.z), visibility)
+                result["pose"] = self._derive_metrics(out, bgr_frame.shape[1], bgr_frame.shape[0])
             except Exception:
                 log.exception("Pose processing failed")
 
@@ -326,13 +349,12 @@ class PoseTracker:
             canvas = np.full((640, 640, 3), 114, dtype=np.uint8)
             pad_x = (640 - new_w) // 2
             pad_y = (640 - new_h) // 2
-            canvas[pad_y:pad_y + new_h, pad_x:pad_x + new_w] = resized
-            blob = cv2.dnn.blobFromImage(
-                canvas, 1 / 255.0, (640, 640), (0, 0, 0), swapRB=True)
+            canvas[pad_y : pad_y + new_h, pad_x : pad_x + new_w] = resized
+            blob = cv2.dnn.blobFromImage(canvas, 1 / 255.0, (640, 640), (0, 0, 0), swapRB=True)
             self._net.setInput(blob)
-            out = self._net.forward()          # (1, 56, 8400)
+            out = self._net.forward()  # (1, 56, 8400)
 
-            preds = out[0].T                    # (8400, 56)
+            preds = out[0].T  # (8400, 56)
             scores = preds[:, 4]
             best = int(np.argmax(scores))
             if scores[best] < config.POSE_CV2_PERSON_SCORE:
@@ -348,8 +370,7 @@ class PoseTracker:
                 if kconf < config.POSE_CV2_KEYPOINT_CONF:
                     continue
                 x, y = _unletterbox_point(kx, ky, scale, pad_x, pad_y, w, h)
-                out_map[mk] = (x, y, 0.0,
-                               float(kconf))
+                out_map[mk] = (x, y, 0.0, float(kconf))
             if not out_map:
                 return {}
             return out_map
@@ -360,29 +381,66 @@ class PoseTracker:
     # ------------------------------------------------------------------
     # shared metrics
     # ------------------------------------------------------------------
-    def _derive_metrics(self, raw_landmarks: Dict[int, Tuple[float, float, float, float]],
-                        frame_w: int, frame_h: int) -> PoseData:
+    def _derive_metrics(
+        self,
+        raw_landmarks: Dict[int, Tuple[float, float, float, float]],
+        frame_w: int,
+        frame_h: int,
+    ) -> PoseData:
         """Compute body confidence, shoulder width, torso height, center with smoothed landmarks."""
         smoothed = {}
+        now = time.monotonic()
+        dt = (
+            1 / 30
+            if self._last_filter_time is None
+            else max(0.001, min(0.1, now - self._last_filter_time))
+        )
+        self._last_filter_time = now
         alpha = config.TRACKING_SMOOTHING_FACTOR
+        arms = {LM_LEFT_ELBOW, LM_RIGHT_ELBOW, LM_LEFT_WRIST, LM_RIGHT_WRIST}
         max_jump = config.MAX_LANDMARK_JUMP
-        
+
         for k, lm in raw_landmarks.items():
+            if k in arms and lm[3] < config.POSE_MIN_LANDMARK_VIS:
+                continue
+            # Reject impossible shoulder-to-hand chains, not fast valid motion.
+            shoulder_id = (
+                LM_LEFT_SHOULDER if k in (LM_LEFT_ELBOW, LM_LEFT_WRIST) else LM_RIGHT_SHOULDER
+            )
+            shoulder = raw_landmarks.get(shoulder_id)
+            if k in arms and shoulder:
+                hips = [raw_landmarks.get(i) for i in (LM_LEFT_HIP, LM_RIGHT_HIP)]
+                torso = abs(shoulder[1] - sum(p[1] for p in hips) / 2) if all(hips) else 0.4
+                limit = max(0.25, torso * 2.2)
+                if math.hypot(lm[0] - shoulder[0], lm[1] - shoulder[1]) > limit:
+                    continue
+                if k in (LM_LEFT_WRIST, LM_RIGHT_WRIST):
+                    elbow = raw_landmarks.get(
+                        LM_LEFT_ELBOW if k == LM_LEFT_WRIST else LM_RIGHT_ELBOW
+                    )
+                    if elbow and math.hypot(lm[0] - elbow[0], lm[1] - elbow[1]) > max(
+                        0.18, torso * 1.6
+                    ):
+                        continue
             if k in self._smoothed_landmarks:
                 prev = self._smoothed_landmarks[k]
-                
+
                 alpha_use = alpha
                 if lm[3] < config.TRACKING_CONFIDENCE_THRESHOLD:
                     alpha_use *= 0.2
-                
+
                 dx = lm[0] - prev[0]
                 dy = lm[1] - prev[1]
                 dz = lm[2] - prev[2]
-                dist = (dx**2 + dy**2 + dz**2)**0.5
-                
-                if dist > max_jump:
+                dist = (dx**2 + dy**2 + dz**2) ** 0.5
+
+                if k in arms:
+                    fast = dist / dt > 0.6 and lm[3] >= config.TRACKING_CONFIDENCE_THRESHOLD
+                    tau = config.ARM_FILTER_FAST if fast else config.ARM_FILTER_SLOW
+                    alpha_use = 1.0 - math.exp(-dt / tau)
+                elif dist > max_jump:
                     alpha_use = 0.05
-                    
+
                 sx = prev[0] * (1 - alpha_use) + lm[0] * alpha_use
                 sy = prev[1] * (1 - alpha_use) + lm[1] * alpha_use
                 sz = prev[2] * (1 - alpha_use) + lm[2] * alpha_use
@@ -390,7 +448,7 @@ class PoseTracker:
                 smoothed[k] = (sx, sy, sz, sv)
             else:
                 smoothed[k] = lm
-                
+
         self._smoothed_landmarks = smoothed
 
         ls = smoothed.get(LM_LEFT_SHOULDER)
@@ -399,11 +457,19 @@ class PoseTracker:
         rh = smoothed.get(LM_RIGHT_HIP)
         nose = smoothed.get(LM_NOSE)
 
-        data = PoseData(present=True, landmarks=smoothed, raw_landmarks=raw_landmarks,
-                        frame_w=frame_w, frame_h=frame_h)
+        data = PoseData(
+            present=True,
+            landmarks=smoothed,
+            raw_landmarks=raw_landmarks,
+            frame_w=frame_w,
+            frame_h=frame_h,
+        )
 
-        visible = [lm for lm in (ls, rs, lh, rh, nose)
-                   if lm is not None and lm[3] > config.POSE_MIN_LANDMARK_VIS]
+        visible = [
+            lm
+            for lm in (ls, rs, lh, rh, nose)
+            if lm is not None and lm[3] > config.POSE_MIN_LANDMARK_VIS
+        ]
         if not visible:
             data.present = False
             return data
@@ -419,8 +485,7 @@ class PoseTracker:
         # weighted body center: configured in config so combat motion can
         # favour stable hips over shoulders that move during punches/guards.
         parts, weights = [], []
-        for name, lm in (("shoulders", mid_shoulder), ("hips", mid_hip),
-                         ("nose", nose)):
+        for name, lm in (("shoulders", mid_shoulder), ("hips", mid_hip), ("nose", nose)):
             weight = config.BODY_CENTER_WEIGHTS.get(name, 0.0)
             if lm is not None and weight > 0.0:
                 parts.append(lm[0])
@@ -434,24 +499,53 @@ class PoseTracker:
     # ------------------------------------------------------------------
     # debug rendering (used by the CAMERA DEBUG view)
     # ------------------------------------------------------------------
-    def draw_debug_frame(self, bgr_frame: np.ndarray, pose: PoseData) -> np.ndarray:
+    def draw_debug_frame(
+        self, bgr_frame: np.ndarray, pose: PoseData, raw: bool = False
+    ) -> np.ndarray:
         """Draw landmarks, skeleton, bounding box and center line on a copy."""
         out = bgr_frame.copy()
         if not pose.present:
             return out
         w, h = out.shape[1], out.shape[0]
         pts: Dict[int, Tuple[int, int]] = {}
-        for index, (x, y, _z, vis) in pose.landmarks.items():
+        landmarks = pose.raw_landmarks if raw and pose.raw_landmarks else pose.landmarks
+        for index, (x, y, _z, vis) in landmarks.items():
             if vis > config.POSE_MIN_LANDMARK_VIS:
                 pts[index] = (int(x * w), int(y * h))
 
         for a, b in SKELETON:
             if a in pts and b in pts:
-                cv2.line(out, pts[a], pts[b], (90, 200, 140), 2)
+                color = (
+                    config.ARM_LEFT_COLOR
+                    if a in (LM_LEFT_SHOULDER, LM_LEFT_ELBOW)
+                    and b in (LM_LEFT_ELBOW, LM_LEFT_WRIST)
+                    else (
+                        config.ARM_RIGHT_COLOR
+                        if a in (LM_RIGHT_SHOULDER, LM_RIGHT_ELBOW)
+                        and b in (LM_RIGHT_ELBOW, LM_RIGHT_WRIST)
+                        else (140, 200, 90)
+                    )
+                )
+                cv2.line(out, pts[a], pts[b], color[::-1], 2)
 
         for index, (x, y) in pts.items():
-            color = (210, 90, 90) if index in (LM_LEFT_WRIST, LM_RIGHT_WRIST) else (120, 220, 120)
+            color = (
+                config.ARM_LEFT_COLOR[::-1]
+                if index == LM_LEFT_WRIST
+                else config.ARM_RIGHT_COLOR[::-1] if index == LM_RIGHT_WRIST else (120, 220, 120)
+            )
             cv2.circle(out, (x, y), 3, color, -1)
+            if index in (LM_LEFT_WRIST, LM_RIGHT_WRIST):
+                cv2.putText(
+                    out,
+                    "LEFT" if index == LM_LEFT_WRIST else "RIGHT",
+                    (max(0, x - 15), max(15, y - 10)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.45,
+                    color,
+                    1,
+                    cv2.LINE_AA,
+                )
 
         ls, rs = pts.get(LM_LEFT_SHOULDER), pts.get(LM_RIGHT_SHOULDER)
         lh, rh = pts.get(LM_LEFT_HIP), pts.get(LM_RIGHT_HIP)
@@ -471,16 +565,17 @@ class PoseTracker:
         self._net = None
 
 
-def _midpoint(a: Optional[Tuple[float, float, float, float]],
-              b: Optional[Tuple[float, float, float, float]]):
+def _midpoint(
+    a: Optional[Tuple[float, float, float, float]], b: Optional[Tuple[float, float, float, float]]
+):
     if a is None or b is None:
         return None
     return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, 1.0)
 
 
-def _unletterbox_point(kx: float, ky: float, scale: float,
-                       pad_x: int, pad_y: int, source_w: int,
-                       source_h: int) -> Tuple[float, float]:
+def _unletterbox_point(
+    kx: float, ky: float, scale: float, pad_x: int, pad_y: int, source_w: int, source_h: int
+) -> Tuple[float, float]:
     """Convert one 640x640 model keypoint back to source-normalized space."""
     x = (kx - pad_x) / (scale * source_w)
     y = (ky - pad_y) / (scale * source_h)

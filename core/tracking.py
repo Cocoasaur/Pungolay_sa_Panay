@@ -27,6 +27,9 @@ class TrackingData:
     right_punch: bool = False          # edge-triggered
     left_haymaker: bool = False
     right_haymaker: bool = False
+    charge_completed: bool = False   # one fresh completion event
+    sample_id: int = -1
+    sample_time: float = 0.0
     is_charging: bool = False
     is_charged: bool = False
     charge_progress: float = 0.0
