@@ -47,7 +47,7 @@ FULLSCREEN_DEFAULT = False
 
 # Arena geometry (all in base-resolution pixels)
 ARENA_MARGIN = 90            # fighters cannot cross this line toward a wall
-GROUND_Y = 568               # y position of the fighters' feet
+GROUND_Y = 620               # shared foreground position of the fighters' feet
 RING_FLOOR_Y = 520           # top of the ring floor boards
 RING_POST_X = 26             # x of the corner posts (both sides)
 ROPE_YS = (352, 388, 424)    # y positions of the three ropes

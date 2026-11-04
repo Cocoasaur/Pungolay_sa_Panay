@@ -19,6 +19,6 @@ keep the procedural art visible. Opaque areas replace it. Images of any size
 are resized to the game's 1280 x 720 canvas.
 
 The ring floor begins at y=520, ropes run across y=352, 388, and 424, and the
-fighters stand with their feet at y=568. Keep important background details
+fighters stand with their feet at y=620. Keep important background details
 above or behind these arena elements so the ring and fighters remain visible.
 If a location PNG is absent, the original procedural backdrop is used.
