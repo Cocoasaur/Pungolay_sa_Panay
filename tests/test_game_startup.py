@@ -84,6 +84,33 @@ class GameStartupTests(unittest.TestCase):
                 screen.draw(self.game.canvas)
                 self.assertTrue(screen._rects)
 
+    def test_campaign_art_and_other_screen_overlays_render(self):
+        from ui.pause_menu import PauseMenu
+        from ui.screens import (CalibrationScreen, CameraDebugView,
+                                LevelSelectScreen, LoadGameScreen)
+        from ui.settings import SettingsScene
+
+        self.game.settings["input_mode"] = "keyboard"
+        self.game.apply_settings_changes()
+        for index in range(len(config.OPPONENT_ORDER)):
+            self.game.progression.start_fight(index)
+            self.game._enter_fight()
+            fight = self.game.states.current
+            for state in ("idle", "punch_l", "guard", "hit", "knockdown", "ko"):
+                with self.subTest(opponent=index, state=state):
+                    fight.player.state = state
+                    fight.enemy.state = state
+                    fight.draw(self.game.canvas)
+            PauseMenu(self.game).draw(self.game.canvas)
+            self.game.states.clear()
+        for screen_type in (CalibrationScreen, CameraDebugView,
+                            LevelSelectScreen, LoadGameScreen):
+            with self.subTest(screen=screen_type.__name__):
+                screen = screen_type(self.game)
+                screen.draw(self.game.canvas)
+        with patch("ui.settings.probe_cameras", return_value=[]):
+            SettingsScene(self.game).draw(self.game.canvas)
+
     def test_victory_names_finished_opponent_and_keeps_next_fight_available(self):
         self.game.settings["input_mode"] = "keyboard"
         last = len(config.OPPONENT_ORDER) - 1

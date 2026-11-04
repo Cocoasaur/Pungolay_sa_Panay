@@ -141,6 +141,32 @@ it at `auto` for the faster 3D backend.
 Distances are *relative* estimates used for game feel (fighter scale and the
 CLOSE / MEDIUM / FAR HUD readout) — they never claim real centimeters.
 
+## Artwork
+
+The game includes PNG artwork for all seven locations, the player and seven
+opponents, the main menu, the pause menu, and the other screens. Artwork is
+loaded from the corresponding directories under `assets/`; missing PNGs use
+the procedural renderer. No additional asset download is needed for the art.
+
+- `assets/levels/<location_id>.png`: location backgrounds, scaled to 1280 x 720.
+- `assets/sprites/<fighter_id>.png`: default fighter images facing right;
+  fighters facing left are mirrored automatically. Optional files such as
+  `player_punch_l.png` or `jessie_knockdown.png` override individual states.
+  The supplied defaults are static; action artwork can be added per state.
+- `assets/menu/menu_background.png`: full menu background. When absent,
+  `assets/menu/menu.png` can decorate the procedural menu instead.
+- `assets/pause_menu/pause_menu.png` and `assets/screens/<screen_id>.png`:
+  decoration behind live controls, text, and camera previews.
+- `assets/hud/template.png`: optional HUD artwork template. Copy it to
+  `assets/hud/hud.png` to enable the overlay. A settings template is also
+  provided at `assets/screens/templates/settings.png`; copy it to
+  `assets/screens/settings.png` to enable it.
+
+Each artwork directory includes editing notes and, where supplied, templates.
+Artwork is included in Git. Downloaded models, fonts, generated sounds, local
+settings, calibration, and save slots remain ignored and are not imported
+from shared project archives.
+
 ## Project layout
 
 ```
@@ -151,7 +177,7 @@ camera/              capture, pose tracking (dual backend), calibration,
 gameplay/            fighters, AI, combat, hitboxes, progression, tutorial
 levels/              location data + procedural backgrounds
 ui/                  menu, settings, HUD, screens, fonts, sprites
-assets/              fonts, sounds (generated), pose models
+assets/              artwork, fonts, sounds (generated), pose models
 tools/               asset setup
 main.py              entry point
 ```
