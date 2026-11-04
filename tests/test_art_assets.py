@@ -49,10 +49,13 @@ class ArtAssetTests(unittest.TestCase):
         return str(path)
 
     def test_campaign_artwork_matches_location_and_fighter_ids(self):
+        levels = LevelManager(Progression())
         for location in config.LOCATION_ORDER:
             with self.subTest(location=location):
-                image = pygame.image.load(str(Path(config.LEVELS_DIR) / f"{location}.png"))
-                self.assertEqual(image.get_size(), (config.BASE_WIDTH, config.BASE_HEIGHT))
+                # Source PNGs can have any size; the rendered arena is 1280 x 720.
+                pygame.image.load(str(Path(config.LEVELS_DIR) / f"{location}.png"))
+                self.assertEqual(levels.background(location).get_size(),
+                                 (config.BASE_WIDTH, config.BASE_HEIGHT))
         for fighter in ["player", *config.OPPONENT_ORDER]:
             with self.subTest(fighter=fighter):
                 path = _sprite_path(fighter, "idle")
