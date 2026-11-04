@@ -17,6 +17,7 @@ from functools import lru_cache
 import pygame
 
 import config
+from ui.animation import draw_animation
 
 C = config.COLORS
 
@@ -70,7 +71,8 @@ def _limb(surface, a, b, width, color, outline):
 def draw_boxer(surface, x: float, foot_y: float, facing: int, state: str,
                anim_t: float, scale: float, trunks_color: tuple,
                flash: bool = False, hit_lean: float = 0.0,
-               fighter_id: str = "player") -> None:
+               fighter_id: str = "player", action_time: float | None = None,
+               charged: bool = False, punch_side: str = "right", motion_direction: int = 0) -> None:
     """Draw one fighter at ground position x with feet on foot_y."""
     s = scale * config.FIGHTER_SIZE
     cx = x
@@ -82,6 +84,10 @@ def draw_boxer(surface, x: float, foot_y: float, facing: int, state: str,
     pygame.draw.ellipse(shadow, (0, 0, 0, 90), shadow.get_rect())
     surface.blit(shadow, (int(cx - 35 * s), int(foot_y - 10 * s)))
 
+    if draw_animation(surface, fighter_id, state,
+                      anim_t if action_time is None else action_time, cx, foot_y,
+                      scale, facing, flash, charged, punch_side, motion_direction):
+        return
     sprite_path = _sprite_path(fighter_id, state)
     if sprite_path is not None:
         sprite_height = max(1, int(config.FIGHTER_BODY_HEIGHT * scale))

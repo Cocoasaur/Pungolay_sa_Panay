@@ -167,19 +167,53 @@ class FightScene(Scene):
 
         if self.player is not None and self.enemy is not None:
             # enemy behind, player in front (drawn second)
-            draw_boxer(surface, self.enemy.x, config.GROUND_Y,
-                       facing=-1, state=self.enemy.state,
-                       anim_t=self.enemy.anim_t, scale=1.0,
-                       trunks_color=self.enemy.trunks_color,
-                       flash=False, hit_lean=0.0,
-                       fighter_id=game.progression.opponent_id)
-            draw_boxer(surface, self.player.x, config.GROUND_Y,
-                       facing=1, state=self.player.state,
-                       anim_t=self.player.anim_t, scale=self.player.scale,
-                       trunks_color=C["trunks_player"],
-                       flash=self.player.state == "hit",
-                       hit_lean=1.0 if self.player.state == "hit" else 0.0,
-                       fighter_id="player")
+            draw_boxer(
+                surface,
+                self.enemy.x,
+                config.GROUND_Y,
+                facing=-1,
+                state=(
+                    self.enemy.state
+                    if self.enemy.state not in ("approach", "retreat")
+                    or self.enemy.motion_direction
+                    else "idle"
+                ),
+                anim_t=self.enemy.anim_t,
+                scale=1.0,
+                trunks_color=self.enemy.trunks_color,
+                flash=False,
+                hit_lean=0.0,
+                fighter_id=game.progression.opponent_id,
+                action_time=(
+                    self.enemy.anim_t
+                    if self.enemy.state in ("approach", "retreat")
+                    else self.enemy.action_t
+                ),
+                punch_side=self.enemy.attack_side,
+                charged=self.enemy.style == "haymaker",
+            )
+            draw_boxer(
+                surface,
+                self.player.x,
+                config.GROUND_Y,
+                facing=1,
+                state=(
+                    "charging"
+                    if self.player.is_charging and self.player.state == "idle"
+                    else self.player.state
+                ),
+                anim_t=self.player.anim_t,
+                scale=self.player.scale,
+                trunks_color=C["trunks_player"],
+                flash=self.player.state == "hit",
+                hit_lean=1.0 if self.player.state == "hit" else 0.0,
+                fighter_id="player",
+                action_time=(
+                    self.player.animation_t if self.player.state == "walk" else self.player.action_t
+                ),
+                charged=self.player.is_haymaker_punch,
+                motion_direction=self.player.motion_direction,
+            )
 
             # debug: show hitboxes
             if game.debug_overlay and self.player.active_hitbox is not None:
@@ -195,8 +229,7 @@ class FightScene(Scene):
             # impact text
             for impact in self.combat.impacts:
                 alpha = max(0, int(255 * (impact.life / 0.7)))
-                surf = game.fonts["large"].render(impact.text, True,
-                                                  C["title_white"])
+                surf = game.fonts["large"].render(impact.text, True, C["title_white"])
                 surf.set_alpha(alpha)
                 surface.blit(surf, surf.get_rect(center=(impact.x, impact.y)))
 
@@ -209,10 +242,16 @@ class FightScene(Scene):
             elif self.enemy.is_knocked_down and not self.enemy.ko:
                 countdown = str(max(0, config.KNOCKDOWN_MAX_COUNT - self.enemy.knockdown_count))
             self.hud.draw(
-                surface, self.player, self.enemy,
-                distance_level=self.game.last_tracking.distance_level if self.game.last_tracking else "MEDIUM",
+                surface,
+                self.player,
+                self.enemy,
+                distance_level=(
+                    self.game.last_tracking.distance_level if self.game.last_tracking else "MEDIUM"
+                ),
                 camera_status=self.game.camera_status_text(),
-                pose_present=self.game.last_tracking.pose_present if self.game.last_tracking else False,
+                pose_present=(
+                    self.game.last_tracking.pose_present if self.game.last_tracking else False
+                ),
                 tracking_lost=self.game.tracking_lost_warning,
                 countdown=countdown,
                 fight_over=self.combat.fight_over,

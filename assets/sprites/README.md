@@ -28,3 +28,30 @@ fighter's default image. States without a matching image use that fighter's
 default image. `enemy.png` and `enemy_<state>.png` can be used as shared
 fallbacks for opponents. If no image applies, the original procedurally drawn
 fighter is used.
+
+
+## Generated action animation
+
+`animations.json` describes six clips for each of the eight original fighters:
+left/right punches (3 frames each), guard (2), walking (4), and charged
+left/right punches (3 each). There are 48 transparent sheets and 144 used frames.
+`animations/generation.json` records the built-in imagegen prompts and mode.
+Each generation used that fighter's original PNG as its identity reference.
+
+Each square sheet has a 2×2 row-major grid. The manifest uses actual output
+sizes, a uniform cell inset to exclude seams, frame rectangles, normalized sole
+pivots, durations, and one shared body-height reference per fighter. Unused
+cells are never rendered. Frames are not independently cropped or resized:
+all eighteen frames share that fighter's scale, and sole pivots meet GROUND_Y.
+The reference corresponds to the existing 240-pixel neutral fighter height.
+
+Player punch windup, extension, and recovery follow config.PLAYER hitbox timing.
+Enemy states explicitly select windup/extension/recovery, with a 160 ms active
+attack window. Guard raises then holds; walking loops only while actually
+moving, and backward steps preserve facing. Charged punches select their own
+left/right clips. Missing sheets/clips fall back to legacy state PNGs, then the
+fighter PNG, then the procedural renderer.
+
+The authored sheets remain unchanged from imagegen output. The cell inset and
+manifest frame bounds exclude occasional unused-cell artifacts. QA checked all
+144 used cells for transparency, edge contact, soles, anatomy, and identity.
