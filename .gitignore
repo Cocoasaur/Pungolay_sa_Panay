@@ -10,8 +10,16 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Downloaded models/fonts, generated sounds, and personal game state
-/assets/
+# Keep authored artwork; exclude downloaded models/fonts and generated sounds
+/assets/*
+!/assets/hud/
+!/assets/levels/
+!/assets/menu/
+!/assets/pause_menu/
+!/assets/screens/
+!/assets/sprites/
+
+# Personal game state
 /saves/
 *.log
 
