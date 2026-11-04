@@ -56,6 +56,9 @@ class Enemy:
         self.knockdowns_total = 0        # get-ups allowed per fight: 2
         self.ko = False
         self.guarding = False
+        self.attack_side = "right"
+        self.action_t = 0.0
+        self.motion_direction = 0
         self.anim_t = 0.0
 
     # ------------------------------------------------------------------
@@ -83,7 +86,9 @@ class Enemy:
 
     # ------------------------------------------------------------------
     def update(self, dt: float, now: float) -> None:
+        previous_state = self.state
         self.anim_t += dt
+        self.action_t += dt
         self.invuln_timer = max(0.0, self.invuln_timer - dt)
 
         if self.is_knocked_down:
@@ -101,6 +106,8 @@ class Enemy:
             if self.state_timer <= 0:
                 self.state = "attack"
                 self.attack_id += 1
+                self.action_t = 0.0
+                self.state_timer = config.ENEMY_ATTACK_ACTIVE_TIME
                 self._spawn_attack_hitbox()
         elif self.state == "attack":
             self.state_timer -= dt
@@ -124,6 +131,9 @@ class Enemy:
             self.state_timer -= dt
             if self.state_timer <= 0:
                 self.state = "idle"
+
+        if self.state != previous_state:
+            self.action_t = 0.0
 
     def _spawn_attack_hitbox(self) -> None:
         hw = self.body_w * self.scale * 0.35 + self.reach * self.scale

@@ -50,6 +50,7 @@ class EnemyAI:
 
         # --- close enough -> attack -------------------------------------
         if dist <= attack_range and random.random() < enemy.aggression:
+            enemy.attack_side = "left" if (enemy.attack_id+1) % 2 == 0 else "right"
             enemy.state = "windup"
             enemy.state_timer = enemy.attack_delay
             return
@@ -74,6 +75,7 @@ class EnemyAI:
     def _apply_movement(self, dt: float) -> None:
         enemy = self.enemy
         player = self.player
+        before_x = enemy.x
 
         if enemy.state == "approach":
             direction = 1 if player.x > enemy.x else -1
@@ -85,6 +87,10 @@ class EnemyAI:
         half = enemy.body_w * enemy.scale / 2
         enemy.x = max(config.ARENA_MARGIN + half,
                       min(config.BASE_WIDTH - config.ARENA_MARGIN - half, enemy.x))
+        dx = enemy.x - before_x
+        enemy.motion_direction = (1 if dx>0 else -1) if abs(dx)>0.05 else 0
+        if enemy.state in ("approach", "retreat") and enemy.motion_direction == 0:
+            enemy.state = "idle"
 
     # ------------------------------------------------------------------
     def start_attack(self) -> bool:
@@ -92,6 +98,7 @@ class EnemyAI:
         enemy = self.enemy
         if enemy.is_knocked_down or enemy.state in ("windup", "attack", "hit"):
             return False
+        enemy.attack_side = "left" if (enemy.attack_id+1) % 2 == 0 else "right"
         enemy.state = "windup"
         enemy.state_timer = enemy.attack_delay
         return True
