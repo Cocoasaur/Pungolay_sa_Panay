@@ -109,16 +109,51 @@ while hands are raised or punching, including a short recovery period.
 6. Blacc Twenti Too — Iloilo International Airport
 7. Caloy — Caloy's House, the finale
 
+## Responsive controls and camera setup
+
+Settings has three pages: **Controls**, **Camera & Tracking**, and **Audio & Display**.
+Use Tab to change pages, arrows to select/change values, or click and drag the
+sliders. Back remains visible inside the 1280×720 canvas. Settings writes are
+batched for 250 ms and flushed on exit; audio changes keep the camera connected.
+
+The 2D punch line defaults to **75% of calibrated arm length**. Its separate
+55–90% distance slider has a live preview. Punch sensitivity adjusts confidence
+requirements for 2D crossings and depth thresholds for 3D punches; it never
+moves the line. Anatomical **LEFT is cyan** and **RIGHT is orange**, with labels.
+Mirror Movement changes movement direction without swapping arm identities.
+
+Camera setup opens immediately, connects and loads tracking in the background,
+then guides calibration and punch/block practice. Choose **Start Fight** for the
+countdown. Reuse Saved Calibration is explicit. Escape cancels setup; Retry and
+Keyboard Mode stay available on failure. Camera Debug returns to its caller;
+a fight behind Pause → Settings stays paused. In Debug, **R** toggles raw/filtered
+landmarks, **T** retries the camera, and **K** selects keyboard mode.
+
+Hold the charging pose (or **J/K** in keyboard mode) for **five seconds**. The HUD
+then keeps **ABILITY READY** visible. The next accepted punch from either arm
+uses **2× damage**, even if it misses. Cooldown, hit stun, or knockdown rejection
+does not consume readiness. Moving, blocking, tracking loss, and pausing retain
+it. Releasing a completed keyboard hold does not attack; tap J or K afterward.
+A new fight, retry, result screen, or leaving the fight clears the stored charge.
+
+Capture and inference use independent workers with latest-only slots. Every
+pose includes a frame ID and capture/inference timestamps; preview frames stay
+paired with their pose. Duplicate renders cannot repeat punches or accelerate
+charge, and samples over 250 ms old produce no gesture events. Confident moving
+arms use approximately 12 ms smoothing; nearly still arms use 45 ms. Torso/hip
+filtering remains steadier to prevent punches from moving the player.
+
 ## How the vision pipeline works
 
 ```
-webcam frame
+continuous capture -> latest frame slot
    -> pose estimation (MediaPipe PoseLandmarker or OpenCV DNN fallback)
+   -> timestamped matched frame + pose sample
    -> body metrics (center, shoulder width, torso height, confidence)
    -> distance estimate (relative: close / medium / far; scales your fighter)
    -> gesture detection
-        punch  : wrist depth velocity (3D backend) or arm-extension
-                 velocity (2D backend), plus arm-extension checks
+        punch  : wrist depth velocity (3D backend) or body-relative
+                 boundary crossing (2D backend), plus confidence checks
         guard  : both wrists near the nose, held briefly
         get-up : both hands raised high for half a second
    -> TrackingData -> FightScene (same dataclass as keyboard mode)
@@ -152,7 +187,8 @@ the procedural renderer. No additional asset download is needed for the art.
 - `assets/sprites/<fighter_id>.png`: default fighter images facing right;
   fighters facing left are mirrored automatically. Optional files such as
   `player_punch_l.png` or `jessie_knockdown.png` override individual states.
-  The supplied defaults are static; action artwork can be added per state.
+  Manifest-driven action sheets animate all eight fighters; single PNGs remain
+  the fallback for unavailable animations.
 - `assets/menu/menu_background.png`: full menu background. When absent,
   `assets/menu/menu.png` can decorate the procedural menu instead.
 - `assets/pause_menu/pause_menu.png` and `assets/screens/<screen_id>.png`:
@@ -166,6 +202,9 @@ Each artwork directory includes editing notes and, where supplied, templates.
 Artwork is included in Git. Downloaded models, fonts, generated sounds, local
 settings, calibration, and save slots remain ignored and are not imported
 from shared project archives.
+
+See [validation results](docs/responsive-update-validation.md) for measured
+responsiveness, automated checks, replay limitations, and hardware acceptance.
 
 ## Project layout
 
@@ -186,8 +225,8 @@ main.py              entry point
 
 - The camera pipeline targets a single player in the frame.
 - Body-center tracking uses smoothing; very fast dashes may lag a step behind.
-- The 2D (cv2) backend estimates punches from arm-extension speed; a sharp,
-  fully extended jab triggers it most reliably.
+- The 2D backend uses a calibrated body-relative punch line. Keep both hips
+  and the punching wrist visible, retract behind the line, then extend past it.
 
 ## License
 
