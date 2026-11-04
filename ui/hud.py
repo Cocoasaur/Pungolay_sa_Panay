@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pygame
 
 import config
@@ -14,6 +16,13 @@ C = config.COLORS
 class HUD:
     def __init__(self, fonts: dict) -> None:
         self.fonts = fonts
+        self.overlay = None
+        if os.path.isfile(config.HUD_IMAGE_PATH):
+            image = pygame.image.load(config.HUD_IMAGE_PATH).convert_alpha()
+            if image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
+                image = pygame.transform.smoothscale(
+                    image, (config.BASE_WIDTH, config.BASE_HEIGHT))
+            self.overlay = image
 
     # ------------------------------------------------------------------
 
@@ -21,6 +30,9 @@ class HUD:
              distance_level: str, camera_status: str, pose_present: bool,
              tracking_lost: bool, countdown: str = "", fight_over: bool = False,
              time_ms: int = 0, tracking=None) -> None:
+        if self.overlay is not None:
+            surface.blit(self.overlay, (0, 0))
+
         small = self.fonts["small"]
         medium = self.fonts["medium"]
 
@@ -34,13 +46,22 @@ class HUD:
         # ---- enemy side (right) ---------------------------------------
         self._draw_bar(surface, config.BASE_WIDTH - 390, 26, 360, 20,
                        enemy.hp, enemy.max_hp, C["hp_red"], C["hp_red_dark"],
-                       enemy.name.upper(), f"{int(enemy.hp)}", small)
+                       enemy.name.upper(), f"{int(enemy.hp)}", small,
+                       label_align="right")
         self._draw_bar(surface, config.BASE_WIDTH - 250, 52, 220, 10,
                        enemy.hp, enemy.max_hp, C["stamina_amber"],
-                       C["stamina_empty"], "", "", small)        # ---- center: opponent / location ------------------------------
+                       C["stamina_empty"], "", "", small)
+
+        # ---- center: opponent / location ------------------------------
         center = medium.render(f"{enemy.name}  -  {enemy.title.upper()}",
                                True, C["text"])
-        surface.blit(center, center.get_rect(midtop=(config.BASE_WIDTH // 2, 28)))
+        center_rect = center.get_rect(midtop=(config.BASE_WIDTH // 2, 28))
+        name_panel = center_rect.inflate(24, 12)
+        pygame.draw.rect(surface, (12, 11, 10, 225), name_panel,
+                         border_radius=8)
+        pygame.draw.rect(surface, C["warm_glow"], name_panel, width=2,
+                         border_radius=8)
+        surface.blit(center, center_rect)
 
         # ---- charging indicator ---------------------------------------
         if tracking and tracking.is_charging and not fight_over and player.state != "ko":
@@ -89,16 +110,32 @@ class HUD:
     # ------------------------------------------------------------------
     @staticmethod
     def _draw_bar(surface, x, y, w, h, value, max_value, color, bg,
-                  label, value_text, font) -> None:
-        pygame.draw.rect(surface, bg, (x, y, w, h))
+                  label, value_text, font, label_align="left") -> None:
+        rect = pygame.Rect(x, y, w, h)
+        pygame.draw.rect(surface, (10, 9, 8), rect.inflate(6, 6),
+                         border_radius=5)
+        pygame.draw.rect(surface, bg, rect, border_radius=4)
         if max_value > 0:
             fill = max(0, min(1.0, value / max_value))
-            pygame.draw.rect(surface, color, (x, y, int(w * fill), h))
-        pygame.draw.rect(surface, C["border"], (x, y, w, h), 1)
+            inner = rect.inflate(-4, -4)
+            fill_rect = pygame.Rect(inner.x, inner.y,
+                                    int(inner.width * fill), inner.height)
+            if fill_rect.width > 0:
+                pygame.draw.rect(surface, color, fill_rect, border_radius=2)
+        pygame.draw.rect(surface, C["border"], rect, width=3, border_radius=4)
+        pygame.draw.line(surface, (205, 176, 132),
+                         (x + 5, y + 1), (x + w - 6, y + 1), 1)
         if label:
             label_surf = font.render(label, True, C["text"])
-            surface.blit(label_surf, (x, y - 18))
+            pill_w = label_surf.get_width() + 16
+            pill_h = label_surf.get_height() + 4
+            pill_x = (x + w - pill_w) if label_align == "right" else x
+            pill_y = y - pill_h - 3
+            pill = pygame.Rect(pill_x, pill_y, pill_w, pill_h)
+            pygame.draw.rect(surface, (18, 16, 14), pill, border_radius=6)
+            pygame.draw.rect(surface, C["accent_red"], pill, width=1,
+                             border_radius=6)
+            surface.blit(label_surf, label_surf.get_rect(center=pill.center))
         if value_text:
             text = font.render(value_text, True, C["title_white"])
             surface.blit(text, text.get_rect(midright=(x + w - 6, y + h // 2)))
-

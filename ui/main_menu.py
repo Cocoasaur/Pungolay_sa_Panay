@@ -8,6 +8,8 @@ click and keyboard navigation (arrows + Enter, Escape quits).
 
 from __future__ import annotations
 
+import os
+
 import pygame
 
 import config
@@ -30,6 +32,7 @@ class MainMenu(Scene):
         self.title_surf = None
         self.subtitle_surf = None
         self.version_surf = None
+        self.menu_overlay = None
         self.items = list(config.MENU_ITEMS)
         self._item_rects = []
         self._build_static()
@@ -38,6 +41,13 @@ class MainMenu(Scene):
     def _build_static(self) -> None:
         from ui.backgrounds import build_menu_background
         self.background = build_menu_background()
+        if (not os.path.isfile(config.MENU_BACKGROUND_PATH)
+                and os.path.isfile(config.MENU_IMAGE_PATH)):
+            image = pygame.image.load(config.MENU_IMAGE_PATH).convert_alpha()
+            if image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
+                image = pygame.transform.smoothscale(
+                    image, (config.BASE_WIDTH, config.BASE_HEIGHT))
+            self.menu_overlay = image
         f = self.fonts
 
         # title: "PUNGOLAY SA" small, "PANAY" huge below it
@@ -102,6 +112,8 @@ class MainMenu(Scene):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.blit(self.background, (0, 0))
+        if self.menu_overlay is not None:
+            surface.blit(self.menu_overlay, (0, 0))
 
         # ---- title block (left) ---------------------------------------
         surface.blit(self.title_surf, (128, 110))
@@ -147,9 +159,9 @@ class MainMenu(Scene):
     # ------------------------------------------------------------------
     def _draw_boxers(self, surface: pygame.Surface) -> None:
         """Player and enemy placeholder boxers facing each other."""
-        enemy_x = config.BASE_WIDTH - 330
-        player_x = config.BASE_WIDTH - 160
-        foot_y = 545
+        enemy_x = config.BASE_WIDTH - 300
+        player_x = config.BASE_WIDTH - 130
+        foot_y = 690
         t = self.anim_t
 
         # subtle warm glow behind the fighters
@@ -163,6 +175,8 @@ class MainMenu(Scene):
         # enemy faces the player (facing right), player faces the enemy
         draw_boxer(surface, enemy_x, foot_y, facing=1, state="idle",
                    anim_t=t + 1.3, scale=1.05,
-                   trunks_color=config.ENEMIES["jessie"].get("trunks"))
+                   trunks_color=config.ENEMIES["jessie"].get("trunks"),
+                   fighter_id="jessie")
         draw_boxer(surface, player_x, foot_y, facing=-1, state="idle",
-                   anim_t=t, scale=1.05, trunks_color=C["trunks_player"])
+                   anim_t=t, scale=1.05, trunks_color=C["trunks_player"],
+                   fighter_id="player")

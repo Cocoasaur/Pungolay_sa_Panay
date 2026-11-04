@@ -155,13 +155,15 @@ class FightScene(Scene):
                        facing=-1, state=self.enemy.state,
                        anim_t=self.enemy.anim_t, scale=1.0,
                        trunks_color=self.enemy.trunks_color,
-                       flash=False, hit_lean=0.0)
+                       flash=False, hit_lean=0.0,
+                       fighter_id=game.progression.opponent_id)
             draw_boxer(surface, self.player.x, config.GROUND_Y,
                        facing=1, state=self.player.state,
                        anim_t=self.player.anim_t, scale=self.player.scale,
                        trunks_color=C["trunks_player"],
                        flash=self.player.state == "hit",
-                       hit_lean=1.0 if self.player.state == "hit" else 0.0)
+                       hit_lean=1.0 if self.player.state == "hit" else 0.0,
+                       fighter_id="player")
 
             # debug: show hitboxes
             if game.debug_overlay and self.player.active_hitbox is not None:
@@ -221,7 +223,7 @@ class FightScene(Scene):
         name_text = f["big"].render(banner["opponent"].upper(), True, C["title_white"])
         loc_text = f["small"].render(
             f"{banner['location'].upper()}  -  {banner['subtitle'].upper()}",
-            True, C["text_dim"])
+            True, C["title_white"])
 
         panel = pygame.Surface((560, 220), pygame.SRCALPHA)
         panel.fill((10, 9, 8, 210))
@@ -230,6 +232,13 @@ class FightScene(Scene):
 
         surface.blit(round_text, round_text.get_rect(center=(center_x, 255)))
         surface.blit(name_text, name_text.get_rect(center=(center_x, 320)))
+        location_pill = pygame.Rect(
+            center_x - loc_text.get_width() // 2 - 18, 371,
+            loc_text.get_width() + 36, 38)
+        pygame.draw.rect(surface, (28, 24, 20), location_pill,
+                         border_radius=8)
+        pygame.draw.rect(surface, C["warm_glow"], location_pill,
+                         width=2, border_radius=8)
         surface.blit(loc_text, loc_text.get_rect(center=(center_x, 390)))
 
     def _draw_camera_preview(self, surface: pygame.Surface) -> None:
@@ -247,7 +256,7 @@ class FightScene(Scene):
             rgb.copy(), (rgb.shape[1], rgb.shape[0]), "RGB")
         preview_size = (256, 144)
         preview = pygame.transform.scale(camera_surface, preview_size)
-        x, y = config.BASE_WIDTH - preview_size[0] - 18, 82
+        x, y = 18, 82
         panel = pygame.Rect(x - 4, y - 22, preview_size[0] + 8,
                             preview_size[1] + 26)
         pygame.draw.rect(surface, C["panel"], panel)

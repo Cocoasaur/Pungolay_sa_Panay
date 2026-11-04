@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pygame
 
 import config
@@ -21,6 +23,14 @@ class PauseMenu(Scene):
         self.fonts = game.fonts
         self.selected = 0
         self._rects = []
+        self.menu_overlay = None
+        if os.path.isfile(config.PAUSE_MENU_IMAGE_PATH):
+            image = pygame.image.load(
+                config.PAUSE_MENU_IMAGE_PATH).convert_alpha()
+            if image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
+                image = pygame.transform.smoothscale(
+                    image, (config.BASE_WIDTH, config.BASE_HEIGHT))
+            self.menu_overlay = image
         self._plain = [self.fonts["medium"].render(i, True, C["text"])
                        for i in PAUSE_ITEMS]
         self._hover = [self.fonts["medium"].render(i, True, C["title_white"])
@@ -72,6 +82,8 @@ class PauseMenu(Scene):
         overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 170))
         surface.blit(overlay, (0, 0))
+        if self.menu_overlay is not None:
+            surface.blit(self.menu_overlay, (0, 0))
 
         title = self.fonts["big"].render("PAUSED", True, C["title_white"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 150)))

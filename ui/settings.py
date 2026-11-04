@@ -7,6 +7,7 @@ settings.json when leaving the screen.
 
 from __future__ import annotations
 
+import os
 from typing import Callable, List
 
 import pygame
@@ -26,6 +27,14 @@ class SettingsScene(Scene):
         self.back_to = back_to
         self.fonts = game.fonts
         self.selected = 0
+        self.overlay = None
+        overlay_path = os.path.join(config.SCREENS_DIR, "settings.png")
+        if os.path.isfile(overlay_path):
+            image = pygame.image.load(overlay_path).convert_alpha()
+            if image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
+                image = pygame.transform.smoothscale(
+                    image, (config.BASE_WIDTH, config.BASE_HEIGHT))
+            self.overlay = image
         self.cameras = probe_cameras()
         if game.settings.get("camera_index") not in self.cameras and self.cameras:
             game.settings["camera_index"] = self.cameras[0]
@@ -195,6 +204,8 @@ class SettingsScene(Scene):
     def draw(self, surface: pygame.Surface) -> None:
         f = self.fonts
         surface.fill(C["charcoal_dark"])
+        if self.overlay is not None:
+            surface.blit(self.overlay, (0, 0))
 
         title = f["large"].render("SETTINGS", True, C["title_white"])
         surface.blit(title, (60, 46))
@@ -221,4 +232,3 @@ class SettingsScene(Scene):
                                                C["warn_yellow"] if selected else C["text_dim"])
                 surface.blit(value_surf, value_surf.get_rect(midright=(x + 680, y + 19)))
             y += 44
-

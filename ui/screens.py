@@ -4,6 +4,7 @@ level select, load game, and the camera debug view.
 
 from __future__ import annotations
 
+import os
 from typing import List, Optional
 
 import pygame
@@ -13,6 +14,23 @@ from core.state_manager import Scene
 from ui.fonts import render_spaced
 
 C = config.COLORS
+
+
+def _load_screen_overlay(screen_id: str) -> Optional[pygame.Surface]:
+    path = os.path.join(config.SCREENS_DIR, f"{screen_id}.png")
+    if not os.path.isfile(path):
+        return None
+    image = pygame.image.load(path).convert_alpha()
+    if image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
+        image = pygame.transform.smoothscale(
+            image, (config.BASE_WIDTH, config.BASE_HEIGHT))
+    return image
+
+
+def _draw_screen_overlay(surface: pygame.Surface,
+                         overlay: Optional[pygame.Surface]) -> None:
+    if overlay is not None:
+        surface.blit(overlay, (0, 0))
 
 
 class _MenuMixin:
@@ -72,6 +90,7 @@ class VictoryScreen(Scene, _MenuMixin):
         super().__init__(game)
         self.selected = 0
         self._rects = []
+        self._screen_overlay = _load_screen_overlay(self.name)
         self.enemy_name = game.progression.opponent["name"] if enemy_name is None else enemy_name
         self.is_final = game.progression.is_final_fight if is_final is None else is_final
 
@@ -94,6 +113,7 @@ class VictoryScreen(Scene, _MenuMixin):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
+        _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
         title = f["big"].render("YOU WIN", True, C["title_white"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 210)))
@@ -117,6 +137,7 @@ class DefeatScreen(Scene, _MenuMixin):
         self.selected = 0
         self._rects = []
         self.enemy_name = ""
+        self._screen_overlay = _load_screen_overlay(self.name)
 
     def enter(self) -> None:
         self.selected = 0
@@ -135,6 +156,7 @@ class DefeatScreen(Scene, _MenuMixin):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
+        _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
         title = f["big"].render("YOU LOST", True, C["hp_red"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 210)))
@@ -154,6 +176,7 @@ class CameraErrorScreen(Scene, _MenuMixin):
         self.message = message or "Please connect a webcam and try again."
         self.selected = 0
         self._rects = []
+        self._screen_overlay = _load_screen_overlay(self.name)
 
     def enter(self) -> None:
         self.selected = 0
@@ -177,6 +200,7 @@ class CameraErrorScreen(Scene, _MenuMixin):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
+        _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
         title = f["big"].render("CAMERA NOT DETECTED", True, C["hp_red"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 190)))
@@ -204,6 +228,7 @@ class CalibrationScreen(Scene, _MenuMixin):
         self._phase = "collecting"   # collecting | done
         self._result_text = ""
         self._preview = None
+        self._screen_overlay = _load_screen_overlay(self.name)
 
     def enter(self) -> None:
         self.selected = 0
@@ -266,6 +291,7 @@ class CalibrationScreen(Scene, _MenuMixin):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
+        _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
         title = f["large"].render("CAMERA CALIBRATION", True, C["title_white"])
         surface.blit(title, (60, 50))
@@ -339,6 +365,7 @@ class LoadGameScreen(Scene, _MenuMixin):
         self.selected = 0
         self._rects = []
         self._slots: List[dict] = []
+        self._screen_overlay = _load_screen_overlay(self.name)
 
     def enter(self) -> None:
         self.selected = 0
@@ -364,6 +391,7 @@ class LoadGameScreen(Scene, _MenuMixin):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
+        _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
         title = f["large"].render("LOAD GAME", True, C["title_white"])
         surface.blit(title, (60, 50))
@@ -413,6 +441,7 @@ class LevelSelectScreen(Scene, _MenuMixin):
         super().__init__(game)
         self.selected = 0
         self._rects = []
+        self._screen_overlay = _load_screen_overlay(self.name)
 
     def enter(self) -> None:
         self.selected = 0
@@ -430,6 +459,7 @@ class LevelSelectScreen(Scene, _MenuMixin):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
+        _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
         title = f["large"].render("LEVEL SELECT", True, C["title_white"])
         surface.blit(title, (60, 50))
@@ -476,6 +506,7 @@ class CameraDebugView(Scene):
         self.back_to = back_to
         self.fonts = game.fonts
         self._preview = None
+        self._screen_overlay = _load_screen_overlay(self.name)
 
     def enter(self) -> None:
         if not self.game.camera_is_open():
@@ -502,6 +533,7 @@ class CameraDebugView(Scene):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(C["charcoal_dark"])
+        _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
         game = self.game
 

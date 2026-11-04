@@ -1,4 +1,4 @@
-"""Procedural fighter sprites.
+"""PNG fighter sprites with procedural fallbacks.
 
 Fighters are drawn with simple shapes in the visual language of the game:
 white/light bodies, black outlines, red gloves, exaggerated limbs. One
@@ -11,12 +11,48 @@ based scale factor, and mirrored with `facing` (1 = right, -1 = left).
 from __future__ import annotations
 
 import math
+import os
+from functools import lru_cache
 
 import pygame
 
 import config
 
 C = config.COLORS
+
+
+@lru_cache(maxsize=32)
+def _load_sprite(path: str) -> pygame.Surface:
+    return pygame.image.load(path).convert_alpha()
+
+
+@lru_cache(maxsize=128)
+def _scaled_sprite(path: str, width: int, height: int,
+                   facing: int) -> pygame.Surface:
+    image = pygame.transform.smoothscale(_load_sprite(path), (width, height))
+    if facing < 0:
+        image = pygame.transform.flip(image, True, False)
+    return image
+
+
+def _sprite_path(fighter_id: str, state: str) -> str | None:
+    if fighter_id != "player" and fighter_id not in config.ENEMIES:
+        raise ValueError(f"Unknown fighter sprite id: {fighter_id}")
+
+    sprite_names = [fighter_id]
+    if fighter_id in config.ENEMIES:
+        sprite_names.append("enemy")
+
+    for name in sprite_names:
+        state_path = os.path.join(config.SPRITES_DIR, f"{name}_{state}.png")
+        if os.path.isfile(state_path):
+            return state_path
+
+    for name in sprite_names:
+        default_path = os.path.join(config.SPRITES_DIR, f"{name}.png")
+        if os.path.isfile(default_path):
+            return default_path
+    return None
 
 
 def _limb(surface, a, b, width, color, outline):
@@ -27,7 +63,8 @@ def _limb(surface, a, b, width, color, outline):
 
 def draw_boxer(surface, x: float, foot_y: float, facing: int, state: str,
                anim_t: float, scale: float, trunks_color: tuple,
-               flash: bool = False, hit_lean: float = 0.0) -> None:
+               flash: bool = False, hit_lean: float = 0.0,
+               fighter_id: str = "player") -> None:
     """Draw one fighter at ground position x with feet on foot_y."""
     s = scale
     cx = x
@@ -38,6 +75,22 @@ def draw_boxer(surface, x: float, foot_y: float, facing: int, state: str,
     shadow = pygame.Surface((int(70 * s), int(16 * s)), pygame.SRCALPHA)
     pygame.draw.ellipse(shadow, (0, 0, 0, 90), shadow.get_rect())
     surface.blit(shadow, (int(cx - 35 * s), int(foot_y - 10 * s)))
+
+    sprite_path = _sprite_path(fighter_id, state)
+    if sprite_path is not None:
+        sprite_height = max(1, int(120 * s))
+        source = _load_sprite(sprite_path)
+        sprite_width = max(
+            1, int(sprite_height * source.get_width() / source.get_height()))
+        sprite = _scaled_sprite(sprite_path, sprite_width, sprite_height,
+                                facing)
+        if flash:
+            sprite = sprite.copy()
+            # Brighten only the character, keeping transparent padding clear.
+            sprite.fill((90, 90, 90, 0), special_flags=pygame.BLEND_RGBA_ADD)
+        surface.blit(sprite, (int(cx - sprite_width / 2),
+                              int(foot_y - sprite_height)))
+        return
 
     if state in ("knockdown", "ko"):
         _draw_lying(surface, cx, foot_y, facing, s, outline, white,
