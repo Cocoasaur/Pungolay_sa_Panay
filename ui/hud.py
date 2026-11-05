@@ -1,4 +1,6 @@
-"""Readable boxing scorecard with a persistent, gameplay-owned ability cue."""
+"""Compact fight overlays that leave the arena and fighters in view."""
+
+from functools import lru_cache
 
 import pygame
 import config
@@ -8,10 +10,37 @@ from ui.fonts import cached_text
 C = config.COLORS
 
 
+@lru_cache(maxsize=24)
+def _panel_image(size, accent=None):
+    """Cache translucent backplates; never dim the whole arena for the HUD."""
+    image = pygame.Surface(size, pygame.SRCALPHA)
+    pygame.draw.rect(image, (23, 21, 18, 222), image.get_rect(), border_radius=5)
+    pygame.draw.rect(image, (125, 110, 88, 160), image.get_rect(), 1, border_radius=5)
+    if accent:
+        pygame.draw.rect(image, accent, (0, 8, 3, size[1] - 16), border_radius=1)
+    return image
+
+
+def overlay_panel(surface, rect, accent=None):
+    surface.blit(_panel_image(rect.size, accent), rect)
+
+
+def compact_control(surface, rect, label):
+    """Small camera toolbar control; its complete visible area is clickable."""
+    overlay_panel(surface, rect)
+    font = theme.fitted(label, rect.w - 12, 13, True)
+    image = cached_text(font, label, C["title_white"])
+    surface.blit(image, image.get_rect(center=rect.center))
+
+
 class HUD:
+    HEALTH_LEFT = pygame.Rect(20, 18, 304, 68)
+    HEALTH_RIGHT = pygame.Rect(956, 18, 304, 68)
+    CHARGE = pygame.Rect(440, 650, 400, 52)
+    WARNING = pygame.Rect(20, 650, 380, 52)
+
     def __init__(self, fonts):
         self.fonts = fonts
-        self.overlay = None
 
     def draw(
         self,
@@ -27,28 +56,31 @@ class HUD:
         time_ms=0,
         tracking=None,
     ):
-        pygame.draw.rect(surface, (23, 21, 18), (0, 0, 1280, 132))
-        pygame.draw.line(surface, C["border"], (24, 131), (1256, 131))
-        for x, fighter, name in ((32, player, "PLAYER"), (880, enemy, enemy.name.upper())):
-            theme.text(surface, self.fonts, name, (x, 14), C["title_white"])
+        for rect, fighter, name in (
+            (self.HEALTH_LEFT, player, "PLAYER"),
+            (self.HEALTH_RIGHT, enemy, enemy.name.upper()),
+        ):
+            overlay_panel(surface, rect)
+            self._label(surface, name, (rect.x + 12, rect.y + 8), 238, 16, bold=True)
+            hp = cached_text(self.fonts["small"], str(max(0, round(fighter.hp))), C["title_white"])
+            surface.blit(hp, hp.get_rect(topright=(rect.right - 12, rect.y + 8)))
             self._bar(
-                surface, pygame.Rect(x, 40, 368, 18), fighter.hp / fighter.max_hp, C["hp_red"]
+                surface,
+                pygame.Rect(rect.x + 12, rect.y + 31, 280, 12),
+                fighter.hp / fighter.max_hp,
+                C["hp_red"],
             )
-            theme.text(
-                surface, self.fonts, str(max(0, round(fighter.hp))), (x + 332, 16), C["title_white"]
-            )
+        self._label(surface, "STAMINA", (32, 69), 60, 12, C["text_dim"])
         self._bar(
             surface,
-            pygame.Rect(32, 68, 224, 7),
+            pygame.Rect(102, 73, 210, 4),
             player.stamina / player.max_stamina,
             C["stamina_amber"],
         )
-        theme.text(surface, self.fonts, "STAMINA", (32, 83), size="tiny")
-        title = (enemy.name + " / " + enemy.title).upper()
-        font = theme.fitted(title, 380, 18, True)
-        image = cached_text(font, title, C["title_white"])
-        surface.blit(image, image.get_rect(center=(640, 28)))
-        self.charge(surface, player, tracking, fight_over)
+        self._label(surface, enemy.title.upper(), (968, 68), 280, 12, C["text_dim"])
+        self.charge(
+            surface, player, tracking, fight_over, keyboard=camera_status == "KEYBOARD MODE"
+        )
         if not fight_over and player.state in ("guard", "punch_l", "punch_r"):
             message = (
                 "BLOCK"
@@ -63,42 +95,42 @@ class HUD:
             rect = label.get_rect(
                 midbottom=(round(player.x), config.GROUND_Y - config.FIGHTER_BODY_HEIGHT - 12)
             ).inflate(16, 8)
-            theme.panel(surface, rect)
+            overlay_panel(surface, rect)
             surface.blit(label, label.get_rect(center=rect.center))
-        status = (
-            "TRACKING LOST / REPOSITION"
-            if tracking_lost
-            else (
-                "KEYBOARD CONTROLS"
-                if camera_status == "KEYBOARD MODE"
-                else (tracking.movement_status if tracking else camera_status)
-            )
-        )
-        if tracking and tracking.pose_present and tracking.movement_status == "TRACKING LOST":
-            status = "SHOW BOTH HIPS / STEP BACK INTO FRAME"
-        theme.panel(surface, pygame.Rect(24, 666, 420, 28))
-        theme.text(
-            surface,
-            self.fonts,
-            status,
-            (36, 673),
-            C["warn_yellow"] if tracking_lost else C["text"],
-            size="tiny",
-        )
+
+        # Routine HOLDING/MOVING and keyboard status belong in Debug. Only an
+        # actionable tracking problem needs a persistent in-fight notice.
+        warning = self.tracking_warning(camera_status, tracking_lost, tracking)
+        if warning and not fight_over:
+            overlay_panel(surface, self.WARNING, C["warn_yellow"])
+            self._label(surface, warning[0], (32, 659), 356, 14, C["warn_yellow"], True)
+            self._label(surface, warning[1], (32, 680), 356, 12, C["title_white"])
         if countdown:
             label = cached_text(self.fonts["big"], countdown, C["title_white"])
             surface.blit(label, label.get_rect(center=(640, 256)))
-            theme.text(
-                surface,
-                self.fonts,
-                "BEAT THE COUNT / RAISE BOTH HANDS",
-                (468, 304),
-                C["title_white"],
+            instruction = (
+                "BEAT THE COUNT / RAISE BOTH HANDS" if player.is_knocked_down else "OPPONENT DOWN"
             )
+            font = theme.fitted(instruction, 400, 16, True)
+            image = cached_text(font, instruction, C["title_white"])
+            surface.blit(image, image.get_rect(center=(640, 312)))
 
-    def charge(self, surface, player, tracking, fight_over=False):
-        rect = pygame.Rect(448, 56, 384, 64)
-        theme.panel(surface, rect)
+    @staticmethod
+    def tracking_warning(camera_status, tracking_lost, tracking):
+        if camera_status == "KEYBOARD MODE":
+            return None
+        if tracking and tracking.movement_status == "TRACKING LOST":
+            if tracking.pose_present:
+                return "MOVEMENT PAUSED", "Show both hips / step back into frame"
+            return "TRACKING LOST", "Step into view to resume movement"
+        if tracking_lost:
+            return "TRACKING LOST", "Step into view to resume movement"
+        return None
+
+    def charge(self, surface, player, tracking, fight_over=False, keyboard=False):
+        if fight_over:
+            return
+        rect = self.CHARGE
         ready = player.ability_ready
         progress = (
             1 if ready else (tracking.charge_progress if tracking else player.charge_progress)
@@ -115,23 +147,32 @@ class HUD:
             )
         )
         if ready:
-            headline = "HAYMAKER READY — NEXT PUNCH 2×"
-            hint = "Your next accepted left or right punch uses it"
+            headline = "HAYMAKER READY / NEXT PUNCH 2×"
+            hint = "Tap J or K to use" if keyboard else "Left or right punch to use"
         elif active:
-            headline = f"{side.upper()} CHARGE / {max(0,5-progress*5):.1f}s"
-            hint = tracking.charge_hint if tracking else "Hold your glove beside your chest"
+            headline = f"{side.upper() + ' ' if side else ''}HAYMAKER / {max(0, 5-progress*5):.1f}s"
+            hint = (tracking.charge_hint if tracking else "") or "Hold your glove beside your chest"
         else:
-            headline = "HAYMAKER / HOLD 5 SECONDS"
-            hint = "Pull either glove back beside your chest"
-        if fight_over:
-            headline = "ROUND COMPLETE"
-            hint = ""
-        font = theme.fitted(headline, 352, 17, True)
-        image = cached_text(font, headline, color)
-        surface.blit(image, (464, 64))
-        self._bar(surface, pygame.Rect(464, 88, 352, 6), progress if active or ready else 0, color)
-        font = theme.fitted(hint, 352, 13)
-        surface.blit(cached_text(font, hint, C["text_dim"]), (464, 100))
+            headline = "HAYMAKER / HOLD 5s"
+            hint = (
+                tracking.charge_hint if tracking else ""
+            ) or "Pull one glove back beside your chest"
+        if keyboard and not ready:
+            hint = (
+                "Keep holding J or K; release when ready"
+                if active
+                else "Hold J or K for 5s, then tap either to punch"
+            )
+        overlay_panel(surface, rect, color if active or ready else None)
+        self._label(surface, headline, (rect.x + 12, rect.y + 7), 376, 15, color, True)
+        self._label(surface, hint, (rect.x + 12, rect.y + 27), 376, 12, C["title_white"])
+        if active or ready:
+            self._bar(surface, pygame.Rect(rect.x + 12, rect.bottom - 7, 376, 3), progress, color)
+
+    @staticmethod
+    def _label(surface, text, pos, width, size, color=None, bold=False):
+        font = theme.fitted(text, width, size, bold)
+        surface.blit(cached_text(font, text, color or C["title_white"]), pos)
 
     @staticmethod
     def _bar(surface, rect, value, color):
