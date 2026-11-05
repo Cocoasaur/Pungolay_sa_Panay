@@ -22,9 +22,8 @@ from gameplay.enemy import Enemy
 from gameplay.player import Player
 from gameplay.spacing import separate_fighters
 from gameplay.tutorial import TutorialManager
-from ui.hud import HUD
+from ui.hud import HUD, overlay_panel, compact_control
 from ui.sprites import draw_boxer
-from ui import theme
 from ui.camera_preview import preview_key, render_preview, label_guides
 
 C = config.COLORS
@@ -41,8 +40,8 @@ class FightScene(Scene):
         self.hud = HUD(game.fonts)
         self._preview_key = None
         self._preview_surface = None
-        self.preview_toggle_rect = pygame.Rect(24, 144, 200, 26)
-        self.recenter_rect = pygame.Rect(24, 286, 200, 30)
+        self.preview_toggle_rect = pygame.Rect(20, 104, 96, 24)
+        self.recenter_rect = pygame.Rect(116, 104, 96, 24)
         self.combat = CombatManager(game.events)
         self.tutorial = TutorialManager()
         self.player: Optional[Player] = None
@@ -110,7 +109,11 @@ class FightScene(Scene):
 
                 self.game.states.push(PauseMenu(self.game))
 
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        elif (
+            event.type == pygame.MOUSEBUTTONDOWN
+            and event.button == 1
+            and self.game.settings["input_mode"] == "camera"
+        ):
             if self.preview_toggle_rect.collidepoint(event.pos):
                 self._toggle_preview()
             elif self.recenter_rect.collidepoint(event.pos):
@@ -371,42 +374,42 @@ class FightScene(Scene):
         if game.settings["input_mode"] != "camera":
             return
         visible = game.settings.get("camera_preview", True)
-        theme.button(
-            surface, self.preview_toggle_rect, "HIDE CAMERA / F4" if visible else "SHOW CAMERA / F4"
+        compact_control(
+            surface, self.preview_toggle_rect, "HIDE / F4" if visible else "CAMERA / F4"
         )
-        self.recenter_rect.y = 286 if visible else 182
-        theme.button(surface, self.recenter_rect, "RECENTER / R")
+        compact_control(surface, self.recenter_rect, "RECENTER R")
         if not visible:
             return
+        frame_rect = pygame.Rect(20, 128, 192, 108)
         if game.last_camera_frame is None:
-            theme.panel(surface, pygame.Rect(24, 170, 200, 112))
+            overlay_panel(surface, frame_rect)
+            label = cached_text(game.fonts["tiny"], "Waiting for camera…", C["text_dim"])
+            surface.blit(label, label.get_rect(center=frame_rect.center))
             return
         key = preview_key(game)
         if key != self._preview_key:
             frame = render_preview(game, game.last_camera_frame, game.last_pose)
             rgb = frame[:, :, ::-1].copy()
             image = pygame.image.frombuffer(rgb, (rgb.shape[1], rgb.shape[0]), "RGB")
-            self._preview_surface = pygame.transform.smoothscale(image, (200, 112))
+            self._preview_surface = pygame.transform.smoothscale(image, frame_rect.size)
             label_guides(self._preview_surface, game.fonts)
             self._preview_key = key
-        surface.blit(self._preview_surface, (24, 170))
+        surface.blit(self._preview_surface, frame_rect)
+        pygame.draw.rect(surface, C["border"], frame_rect, 1)
 
     def _draw_tutorial(self, surface: pygame.Surface) -> None:
-        f = self.game.fonts
-        x, y = (244, 148) if self.game.settings["input_mode"] == "camera" else (24, 148)
-        panel = pygame.Surface((360, 200), pygame.SRCALPHA)
-        panel.fill((10, 9, 8, 200))
-        surface.blit(panel, (x, y))
-        pygame.draw.rect(surface, C["border"], (x, y, 360, 200), 1)
-        title = cached_text(f["small"], "TUTORIAL", C["warn_yellow"])
-        surface.blit(title, (x + 12, y + 8))
-        yy = y + 34
-        for check in self.tutorial._checks:
-            color = C["ok_green"] if check["done"] else C["text_dim"]
-            mark = "OK  " if check["done"] else "-  "
-            line = cached_text(f["tiny"], mark + check["text"], color)
-            surface.blit(line, (x + 12, yy))
-            yy += 26
+        """Show the next unfinished objective without covering the arena."""
+        checks = self.tutorial._checks
+        remaining = next((check for check in checks if not check["done"]), None)
+        if remaining is None:
+            return
+        rect = pygame.Rect(448, 18, 384, 58)
+        overlay_panel(surface, rect)
+        done = sum(check["done"] for check in checks)
+        self.hud._label(
+            surface, f"PRACTICE / {done} OF {len(checks)}", (460, 26), 360, 12, C["warm_glow"], True
+        )
+        self.hud._label(surface, remaining["text"], (460, 47), 360, 15)
 
     @staticmethod
     def _draw_hitbox(surface, hitbox, color, width: int = 2) -> None:
