@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import pygame
 import config
-from ui.assets import load_image
+from ui.animation_cache import cache
 
 
 @lru_cache(maxsize=4)
@@ -16,14 +16,29 @@ def manifest(path):
         return {}
 
 
-@lru_cache(maxsize=128)
 def frame_image(path, rect, width, height, facing):
-    sheet = load_image(path)
-    if sheet is None:
-        return None
-    frame = sheet.subsurface(pygame.Rect(rect))
-    image = pygame.transform.smoothscale(frame, (width, height))
-    return pygame.transform.flip(image, True, False) if facing < 0 else image
+    return cache.request((path, rect, width, height, facing))
+
+
+def prewarm_pair(*fighters):
+    data = manifest(str(Path(config.SPRITES_DIR) / "animations.json"))
+    for fighter_id, facing in fighters:
+        fighter = data.get("fighters", {}).get(fighter_id, {})
+        for clip in fighter.get("clips", {}).values():
+            for item in clip["frames"]:
+                rect = tuple(item["rect"])
+                factor = config.FIGHTER_BODY_HEIGHT / (
+                    clip.get("reference_height", fighter["reference_height"]) * rect[3]
+                )
+                cache.request(
+                    (
+                        str(Path(config.SPRITES_DIR) / clip["sheet"]),
+                        rect,
+                        max(1, round(rect[2] * factor)),
+                        max(1, round(rect[3] * factor)),
+                        facing,
+                    )
+                )
 
 
 def draw_animation(
@@ -45,7 +60,17 @@ def draw_animation(
     if not fighter:
         return False
     forced = None
-    if state.startswith("punch_"):
+    if state in ("idle", "hit"):
+        action = "idle"
+        if state == "hit":
+            forced = 0
+    elif state in ("knockdown", "ko"):
+        action = "knockdown"
+        if state == "ko":
+            forced = 3
+    elif state == "getup":
+        action = "getup"
+    elif state.startswith("punch_"):
         action = ("haymaker_" if charged else "punch_") + state[-1]
         forced = (
             0
@@ -60,7 +85,7 @@ def draw_animation(
     elif state in ("walk", "approach", "retreat"):
         action = "walk"
     elif state == "charging":
-        action = "haymaker_l"
+        action = "haymaker_l" if side == "left" else "haymaker_r"
         forced = 0
     else:
         return False
@@ -74,7 +99,11 @@ def draw_animation(
     elif action == "guard":
         index = 0 if t < durations[0] else 1
     else:
-        elapsed = max(0, t) % sum(durations) if action == "walk" else max(0, t)
+        elapsed = (
+            max(0, t) % sum(durations)
+            if clip.get("loop", action in ("walk", "idle"))
+            else max(0, t)
+        )
         index = len(frames) - 1
         for i, duration in enumerate(durations):
             if elapsed < duration:
@@ -85,7 +114,7 @@ def draw_animation(
         index = len(frames) - 1 - index
     item = frames[min(index, len(frames) - 1)]
     rect = tuple(item["rect"])
-    reference = fighter["reference_height"] * rect[3]
+    reference = clip.get("reference_height", fighter["reference_height"]) * rect[3]
     factor = config.FIGHTER_BODY_HEIGHT * scale / reference
     width = max(1, round(rect[2] * factor))
     height = max(1, round(rect[3] * factor))
@@ -94,6 +123,14 @@ def draw_animation(
         return False
     px, py = item["pivot"]
     px = px * width if facing > 0 else (1 - px) * width
+    if clip.get("runtime_breathing"):
+        # Reuse the approved guard drawing; keep the sole anchor fixed.
+        import math
+
+        breathing = 1.0 + 0.006 * math.sin(t * math.tau / 1.6)
+        new_height = round(height * breathing)
+        image = pygame.transform.smoothscale(image, (width, new_height))
+        height = new_height
     if flash:
         image = image.copy()
         image.fill((90, 90, 90, 0), special_flags=pygame.BLEND_RGBA_ADD)

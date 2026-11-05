@@ -17,7 +17,8 @@ from core.tracking import TrackingData
 from gameplay.player import Player
 from gameplay.enemy import Enemy
 from gameplay.ai import EnemyAI
-from ui.animation import draw_animation
+from ui.animation import draw_animation, prewarm_pair
+from ui.animation_cache import cache
 from test_punch_boundary import pose
 
 
@@ -26,17 +27,20 @@ class AnimationTests(unittest.TestCase):
     def setUpClass(cls):
         pygame.init()
         pygame.display.set_mode((1, 1))
+        for fighter in ["player", *config.OPPONENT_ORDER]:
+            prewarm_pair((fighter, 1))
+        assert cache.wait_ready(30)
 
     @classmethod
     def tearDownClass(cls):
         pygame.quit()
 
-    def test_manifest_has_all_eight_fighters_and_144_frames(self):
+    def test_manifest_has_all_eight_fighters_and_232_frames(self):
         data = json.loads((Path(config.SPRITES_DIR) / "animations.json").read_text())
         self.assertEqual(set(data["fighters"]), {"player", *config.OPPONENT_ORDER})
         total = 0
         for fighter in data["fighters"].values():
-            self.assertEqual(len(fighter["clips"]), 6)
+            self.assertEqual(len(fighter["clips"]), 9)
             for clip in fighter["clips"].values():
                 image = pygame.image.load(str(Path(config.SPRITES_DIR) / clip["sheet"]))
                 self.assertTrue(image.get_flags() & pygame.SRCALPHA)
@@ -44,7 +48,7 @@ class AnimationTests(unittest.TestCase):
                     self.assertTrue(image.get_rect().contains(frame["rect"]))
                     self.assertTrue(all(0 < v < 1 for v in frame["pivot"]))
                 total += len(clip["frames"])
-        self.assertEqual(total, 144)
+        self.assertEqual(total, 232)
 
     def test_all_frames_keep_soles_grounded_and_do_not_clip(self):
         for fighter in ["player", *config.OPPONENT_ORDER]:

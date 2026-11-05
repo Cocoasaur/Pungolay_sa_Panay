@@ -280,6 +280,182 @@
               ]
             }
           ]
+        },
+        "idle": {
+          "sheet": "animations/player_idle.png",
+          "durations": [
+            0.4,
+            0.4,
+            0.4,
+            0.4
+          ],
+          "loop": true,
+          "hold_last": false,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.486088,
+                0.918167
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.486088,
+                0.918167
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.486088,
+                0.91653
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.486907,
+                0.91653
+              ]
+            }
+          ],
+          "reference_height": 0.7905074,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "knockdown": {
+          "sheet": "animations/player_knockdown.png",
+          "durations": [
+            0.08,
+            0.12,
+            0.14,
+            0.16
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.513912,
+                0.918167
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.486907,
+                0.919804
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.482815,
+                0.837971
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.506547,
+                0.841244
+              ]
+            }
+          ],
+          "reference_height": 0.7626841,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "getup": {
+          "sheet": "animations/player_getup.png",
+          "durations": [
+            0.12,
+            0.18,
+            0.22
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.484452,
+                0.883797
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.452537,
+                0.88216
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.486088,
+                0.9018
+              ]
+            }
+          ],
+          "reference_height": 0.7986907,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
         }
       }
     },
@@ -561,6 +737,182 @@
               ]
             }
           ]
+        },
+        "idle": {
+          "sheet": "animations/jessie_idle.png",
+          "durations": [
+            0.4,
+            0.4,
+            0.4,
+            0.4
+          ],
+          "loop": true,
+          "hold_last": false,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.505728,
+                0.905074
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.497545,
+                0.905074
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.531915,
+                0.903437
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.520458,
+                0.903437
+              ]
+            }
+          ],
+          "reference_height": 0.7659574,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "knockdown": {
+          "sheet": "animations/jessie_knockdown.png",
+          "durations": [
+            0.08,
+            0.12,
+            0.14,
+            0.16
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.506547,
+                0.913257
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.51964,
+                0.913257
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.528642,
+                0.855974
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.477905,
+                0.86743
+              ]
+            }
+          ],
+          "reference_height": 0.7626841,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "getup": {
+          "sheet": "animations/jessie_getup.png",
+          "durations": [
+            0.12,
+            0.18,
+            0.22
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.49509,
+                0.913257
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.45581,
+                0.90671
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.50982,
+                0.9018
+              ]
+            }
+          ],
+          "reference_height": 0.7839607,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
         }
       }
     },
@@ -842,6 +1194,182 @@
               ]
             }
           ]
+        },
+        "idle": {
+          "sheet": "animations/jevidiah_idle.png",
+          "durations": [
+            0.4,
+            0.4,
+            0.4,
+            0.4
+          ],
+          "loop": true,
+          "hold_last": false,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.502455,
+                0.918167
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.502455,
+                0.918167
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.503273,
+                0.918167
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.502455,
+                0.918167
+              ]
+            }
+          ],
+          "reference_height": 0.7855974,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "knockdown": {
+          "sheet": "animations/jevidiah_knockdown.png",
+          "durations": [
+            0.08,
+            0.12,
+            0.14,
+            0.16
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.506547,
+                0.94108
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.508183,
+                0.94108
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.47054,
+                0.86252
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.605565,
+                0.870704
+              ]
+            }
+          ],
+          "reference_height": 0.8085106,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "getup": {
+          "sheet": "animations/jevidiah_getup.png",
+          "durations": [
+            0.12,
+            0.18,
+            0.22
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.42635,
+                0.957447
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.449264,
+                0.95581
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.518822,
+                0.914894
+              ]
+            }
+          ],
+          "reference_height": 0.7888707,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
         }
       }
     },
@@ -1123,6 +1651,182 @@
               ]
             }
           ]
+        },
+        "idle": {
+          "sheet": "animations/johnwilt_idle.png",
+          "durations": [
+            0.4,
+            0.4,
+            0.4,
+            0.4
+          ],
+          "loop": true,
+          "hold_last": false,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.484452,
+                0.919804
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.484452,
+                0.919804
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.483633,
+                0.919804
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.483633,
+                0.919804
+              ]
+            }
+          ],
+          "reference_height": 0.797054,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "knockdown": {
+          "sheet": "animations/johnwilt_knockdown.png",
+          "durations": [
+            0.08,
+            0.12,
+            0.14,
+            0.16
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.531915,
+                0.929624
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.486907,
+                0.929624
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.458265,
+                0.842881
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.477905,
+                0.846154
+              ]
+            }
+          ],
+          "reference_height": 0.7823241,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "getup": {
+          "sheet": "animations/johnwilt_getup.png",
+          "durations": [
+            0.12,
+            0.18,
+            0.22
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.502455,
+                0.942717
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.445172,
+                0.944354
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.488543,
+                0.92144
+              ]
+            }
+          ],
+          "reference_height": 0.806874,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
         }
       }
     },
@@ -1404,6 +2108,182 @@
               ]
             }
           ]
+        },
+        "idle": {
+          "sheet": "animations/jereme_idle.png",
+          "durations": [
+            0.4,
+            0.4,
+            0.4,
+            0.4
+          ],
+          "loop": true,
+          "hold_last": false,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.5,
+                0.89198
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.5,
+                0.89198
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.5,
+                0.89198
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.5,
+                0.89198
+              ]
+            }
+          ],
+          "reference_height": 0.7430442,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "knockdown": {
+          "sheet": "animations/jereme_knockdown.png",
+          "durations": [
+            0.08,
+            0.12,
+            0.14,
+            0.16
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.506547,
+                0.895254
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.489362,
+                0.9018
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.487725,
+                0.805237
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.50491,
+                0.811784
+              ]
+            }
+          ],
+          "reference_height": 0.7446809,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "getup": {
+          "sheet": "animations/jereme_getup.png",
+          "durations": [
+            0.12,
+            0.18,
+            0.22
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.498363,
+                0.932897
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.454992,
+                0.929624
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.511457,
+                0.883797
+              ]
+            }
+          ],
+          "reference_height": 0.7348609,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
         }
       }
     },
@@ -1685,6 +2565,183 @@
               ]
             }
           ]
+        },
+        "knockdown": {
+          "sheet": "animations/daniel_knockdown.png",
+          "durations": [
+            0.08,
+            0.12,
+            0.14,
+            0.16
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.527005,
+                0.90671
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.48527,
+                0.90671
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.513912,
+                0.842881
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.612111,
+                0.851064
+              ]
+            }
+          ],
+          "reference_height": 0.7561375,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "getup": {
+          "sheet": "animations/daniel_getup.png",
+          "durations": [
+            0.12,
+            0.18,
+            0.22
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.503273,
+                0.939444
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.459083,
+                0.93617
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.491817,
+                0.898527
+              ]
+            }
+          ],
+          "reference_height": 0.7594108,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "idle": {
+          "sheet": "animations/daniel_getup.png",
+          "frames": [
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.491817,
+                0.898527
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.491817,
+                0.898527
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.491817,
+                0.898527
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.491817,
+                0.898527
+              ]
+            }
+          ],
+          "durations": [
+            0.4,
+            0.4,
+            0.4,
+            0.4
+          ],
+          "loop": true,
+          "runtime_breathing": true,
+          "source_note": "Imagegen rejected idle generation. Existing guard artwork receives subtle anchored runtime breathing.",
+          "reference_height": 0.7594108,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
         }
       }
     },
@@ -1966,6 +3023,182 @@
               ]
             }
           ]
+        },
+        "idle": {
+          "sheet": "animations/blacc_twenti_too_idle.png",
+          "durations": [
+            0.4,
+            0.4,
+            0.4,
+            0.4
+          ],
+          "loop": true,
+          "hold_last": false,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.49509,
+                0.94108
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.49509,
+                0.94108
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.49509,
+                0.94108
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.49509,
+                0.94108
+              ]
+            }
+          ],
+          "reference_height": 0.797054,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "knockdown": {
+          "sheet": "animations/blacc_twenti_too_knockdown.png",
+          "durations": [
+            0.08,
+            0.12,
+            0.14,
+            0.16
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.51473,
+                0.942717
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.540917,
+                0.942717
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.51473,
+                0.847791
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.511457,
+                0.85761
+              ]
+            }
+          ],
+          "reference_height": 0.797054,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "getup": {
+          "sheet": "animations/blacc_twenti_too_getup.png",
+          "durations": [
+            0.12,
+            0.18,
+            0.22
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.47545,
+                0.942717
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.486907,
+                0.94599
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.504092,
+                0.939444
+              ]
+            }
+          ],
+          "reference_height": 0.7986907,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
         }
       }
     },
@@ -2247,6 +3480,182 @@
               ]
             }
           ]
+        },
+        "idle": {
+          "sheet": "animations/caloy_idle.png",
+          "durations": [
+            0.4,
+            0.4,
+            0.4,
+            0.4
+          ],
+          "loop": true,
+          "hold_last": false,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.48527,
+                0.905074
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.48527,
+                0.905074
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.48527,
+                0.905074
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.48527,
+                0.905074
+              ]
+            }
+          ],
+          "reference_height": 0.7610475,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "knockdown": {
+          "sheet": "animations/caloy_knockdown.png",
+          "durations": [
+            0.08,
+            0.12,
+            0.14,
+            0.16
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.523732,
+                0.91162
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.492635,
+                0.91162
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.457447,
+                0.834697
+              ]
+            },
+            {
+              "rect": [
+                635,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.633388,
+                0.846154
+              ]
+            }
+          ],
+          "reference_height": 0.7643208,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
+        },
+        "getup": {
+          "sheet": "animations/caloy_getup.png",
+          "durations": [
+            0.12,
+            0.18,
+            0.22
+          ],
+          "loop": false,
+          "hold_last": true,
+          "frames": [
+            {
+              "rect": [
+                8,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.491817,
+                0.908347
+              ]
+            },
+            {
+              "rect": [
+                635,
+                8,
+                611,
+                611
+              ],
+              "pivot": [
+                0.418985,
+                0.90671
+              ]
+            },
+            {
+              "rect": [
+                8,
+                635,
+                611,
+                611
+              ],
+              "pivot": [
+                0.501637,
+                0.905074
+              ]
+            }
+          ],
+          "reference_height": 0.7528642,
+          "scale_note": "One neutral standing reference for the entire clip; every frame retains the same canvas, scale and root."
         }
       }
     }
