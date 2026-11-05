@@ -14,6 +14,7 @@ from core.state_manager import Scene
 from ui.fonts import render_spaced, cached_text
 from ui.assets import load_image
 from ui import theme
+from ui.camera_preview import preview_key, render_preview, label_guides
 
 C = config.COLORS
 
@@ -109,7 +110,9 @@ class VictoryScreen(Scene, _MenuMixin):
         f = self.game.fonts
         title = cached_text(f["big"], "YOU WIN", C["title_white"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 210)))
-        subtitle = cached_text(f["medium"], f"YOU DEFEATED {self.enemy_name.upper()}", C["text_dim"])
+        subtitle = cached_text(
+            f["medium"], f"YOU DEFEATED {self.enemy_name.upper()}", C["text_dim"]
+        )
         surface.blit(subtitle, subtitle.get_rect(center=(config.BASE_WIDTH // 2, 290)))
         if self.is_final:
             champion = cached_text(f["medium"], "PANAY CHAMPION", C["accent_red_bright"])
@@ -150,7 +153,9 @@ class DefeatScreen(Scene, _MenuMixin):
         f = self.game.fonts
         title = cached_text(f["big"], "YOU LOST", C["hp_red"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 210)))
-        subtitle = cached_text(f["medium"], f"{self.enemy_name.upper()} WINS THE ROUND", C["text_dim"])
+        subtitle = cached_text(
+            f["medium"], f"{self.enemy_name.upper()} WINS THE ROUND", C["text_dim"]
+        )
         surface.blit(subtitle, subtitle.get_rect(center=(config.BASE_WIDTH // 2, 290)))
         self._draw_buttons(surface, ["RETRY", "MAIN MENU"], 400, config.BASE_WIDTH // 2)
 
@@ -279,25 +284,14 @@ class CalibrationScreen(Scene, _MenuMixin):
         if status in ("CAMERA NOT DETECTED", "CAMERA LOST", "POSE UNAVAILABLE"):
             self._phase = "error"
             self.selected = min(self.selected, len(self._actions()) - 1)
-        preview_key = (
-            game.tracking.sample_id,
-            game.raw_landmarks,
-            game.gestures.line_reach,
-            id(game.last_camera_frame),
-        )
-        if (
-            game.last_camera_frame is not None
-            and pose is not None
-            and preview_key != self._preview_key
-        ):
-            self._preview_key = preview_key
-            frame = game.pose_tracker.draw_debug_frame(
-                game.last_camera_frame, pose, raw=game.raw_landmarks
-            )
-            frame = game.gestures.draw_punch_boundary(frame, pose, game.calibrator.existing)
+        key = preview_key(game)
+        if game.last_camera_frame is not None and pose is not None and key != self._preview_key:
+            self._preview_key = key
+            frame = render_preview(game, game.last_camera_frame, pose)
             rgb = frame[:, :, ::-1].copy()
             image = pygame.image.frombuffer(rgb, (rgb.shape[1], rgb.shape[0]), "RGB")
             self._preview = pygame.transform.smoothscale(image, (640, 360))
+            label_guides(self._preview, game.fonts)
         if self._phase == "connecting" and pose is not None and pose.present:
             game.calibrator.start()
             self._phase = "collecting"
@@ -425,11 +419,17 @@ class LoadGameScreen(Scene, _MenuMixin):
                 pygame.draw.rect(surface, (52, 46, 40), rect)
                 pygame.draw.rect(surface, C["accent_red"], (rect.x, rect.y, 4, 64))
             pygame.draw.rect(surface, C["border"], rect, 1)
-            head = cached_text(f["medium"], f"SLOT {slot['slot']}", C["title_white"] if hover else C["text"])
+            head = cached_text(
+                f["medium"], f"SLOT {slot['slot']}", C["title_white"] if hover else C["text"]
+            )
             surface.blit(head, (rect.x + 18, rect.y + 8))
             if slot["exists"]:
-                sub = cached_text(f["small"], f"{slot['timestamp']}   -   {slot['opponent']} @ {slot['location']}"
-                    f"   -   {len(slot['defeated'])} WINS", C["text_dim"])
+                sub = cached_text(
+                    f["small"],
+                    f"{slot['timestamp']}   -   {slot['opponent']} @ {slot['location']}"
+                    f"   -   {len(slot['defeated'])} WINS",
+                    C["text_dim"],
+                )
             else:
                 sub = cached_text(f["small"], "EMPTY", C["text_faint"])
             surface.blit(sub, (rect.x + 18, rect.y + 36))
@@ -492,9 +492,15 @@ class LevelSelectScreen(Scene, _MenuMixin):
                 pygame.draw.rect(surface, (52, 46, 40), rect)
                 pygame.draw.rect(surface, C["accent_red"], (rect.x, rect.y, 4, 58))
             pygame.draw.rect(surface, C["border"], rect, 1)
-            name = cached_text(f["medium"], f"{enemy['name'].upper()}", C["title_white"] if hover else C["text"])
+            name = cached_text(
+                f["medium"], f"{enemy['name'].upper()}", C["title_white"] if hover else C["text"]
+            )
             surface.blit(name, (rect.x + 18, rect.y + 8))
-            sub = cached_text(f["small"], f"{enemy.get('title','').upper()}  -  {location['name'].upper()}", C["text_dim"])
+            sub = cached_text(
+                f["small"],
+                f"{enemy.get('title','').upper()}  -  {location['name'].upper()}",
+                C["text_dim"],
+            )
             surface.blit(sub, (rect.x + 18, rect.y + 34))
             y += 68
 
@@ -503,7 +509,9 @@ class LevelSelectScreen(Scene, _MenuMixin):
         if self.selected == len(unlocked):
             pygame.draw.rect(surface, (52, 46, 40), back_rect)
             pygame.draw.rect(surface, C["accent_red"], (back_rect.x, back_rect.y, 4, 44))
-        back = cached_text(f["medium"], "BACK", C["title_white"] if self.selected == len(unlocked) else C["text"])
+        back = cached_text(
+            f["medium"], "BACK", C["title_white"] if self.selected == len(unlocked) else C["text"]
+        )
         surface.blit(back, (back_rect.x + 18, back_rect.y + 10))
 
 
@@ -563,25 +571,14 @@ class CameraDebugView(Scene):
     def update(self, dt):
         game = self.game
         tracking, pose = game.poll_camera_for_calibration()
-        preview_key = (
-            game.tracking.sample_id,
-            game.raw_landmarks,
-            game.gestures.line_reach,
-            id(game.last_camera_frame),
-        )
-        if (
-            game.last_camera_frame is not None
-            and pose is not None
-            and preview_key != self._preview_key
-        ):
-            self._preview_key = preview_key
-            frame = game.pose_tracker.draw_debug_frame(
-                game.last_camera_frame, pose, raw=game.raw_landmarks
-            )
-            frame = game.gestures.draw_punch_boundary(frame, pose, game.calibrator.existing)
+        key = preview_key(game)
+        if game.last_camera_frame is not None and pose is not None and key != self._preview_key:
+            self._preview_key = key
+            frame = render_preview(game, game.last_camera_frame, pose)
             rgb = frame[:, :, ::-1].copy()
             image = pygame.image.frombuffer(rgb, (rgb.shape[1], rgb.shape[0]), "RGB")
             self._preview = pygame.transform.smoothscale(image, (800, 450))
+            label_guides(self._preview, game.fonts)
 
     def draw(self, surface):
         import time
@@ -619,9 +616,18 @@ class CameraDebugView(Scene):
                     (side + " arm", "ARMED" if hand.line_armed else "RETRACT"),
                 ]
             )
+        fight = next((scene for scene in game.states._stack if scene.name == "gameplay"), None)
+        actual = "—"
+        if fight and fight.player:
+            minimum = config.ARENA_MARGIN + fight.player.body_w / 2
+            actual = f"{(fight.player.x-minimum)/(config.BASE_WIDTH-2*minimum)*100:.1f}%"
+        rows.extend(
+            [("Target X", f"{game.tracking.horizontal_position*100:.1f}%"), ("Actual X", actual)]
+        )
+        rows.append(("Fight", "PAUSED" if fight else "NONE"))
         for i, (label, value) in enumerate(rows):
-            surface.blit(cached_text(f["small"], label + ":", C["text_dim"]), (880, 90 + i * 30))
-            surface.blit(cached_text(f["small"], value, C["text"]), (1010, 90 + i * 30))
+            surface.blit(cached_text(f["small"], label + ":", C["text_dim"]), (880, 90 + i * 26))
+            surface.blit(cached_text(f["small"], value, C["text"]), (1010, 90 + i * 26))
         for i, text in enumerate(
             (
                 "LEFT: CYAN    RIGHT: ORANGE",

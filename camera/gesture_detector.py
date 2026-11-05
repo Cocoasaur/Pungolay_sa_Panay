@@ -295,7 +295,7 @@ class GestureDetector:
             reach_fraction=self.line_reach,
         )
 
-    def draw_punch_boundary(self, frame, pose, calibration):
+    def draw_punch_boundary(self, frame, pose, calibration, mirror=False):
         """Show the same body-relative line used by the 2D punch detector."""
         if pose is None or not pose.is_2d:
             return frame
@@ -306,8 +306,9 @@ class GestureDetector:
 
         out = frame.copy()
         height, width = out.shape[:2]
-        x = int(boundary.x * width)
-        if not 0 <= x < width:
+        projected_x = 1 - boundary.x if mirror else boundary.x
+        x = round(projected_x * (width - 1))
+        if not 0 <= projected_x <= 1:
             cv2.putText(
                 out,
                 "Step back / reposition: punch line outside frame",

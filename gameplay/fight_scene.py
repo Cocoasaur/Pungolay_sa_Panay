@@ -25,6 +25,7 @@ from gameplay.tutorial import TutorialManager
 from ui.hud import HUD
 from ui.sprites import draw_boxer
 from ui import theme
+from ui.camera_preview import preview_key, render_preview, label_guides
 
 C = config.COLORS
 
@@ -340,9 +341,15 @@ class FightScene(Scene):
         banner = self.intro_banner
         center_x = config.BASE_WIDTH // 2
 
-        round_text = cached_text(f["medium"], f"STARTING IN {max(1, int(self.intro_timer + 0.999))}", C["warn_yellow"])
+        round_text = cached_text(
+            f["medium"], f"STARTING IN {max(1, int(self.intro_timer + 0.999))}", C["warn_yellow"]
+        )
         name_text = cached_text(f["big"], banner["opponent"].upper(), C["title_white"])
-        loc_text = cached_text(f["small"], f"{banner['location'].upper()}  -  {banner['subtitle'].upper()}", C["title_white"])
+        loc_text = cached_text(
+            f["small"],
+            f"{banner['location'].upper()}  -  {banner['subtitle'].upper()}",
+            C["title_white"],
+        )
 
         panel = pygame.Surface((560, 220), pygame.SRCALPHA)
         panel.fill((10, 9, 8, 210))
@@ -374,24 +381,13 @@ class FightScene(Scene):
         if game.last_camera_frame is None:
             theme.panel(surface, pygame.Rect(24, 170, 200, 112))
             return
-        key = (
-            getattr(game.tracking, "sample_id", -1),
-            game.raw_landmarks,
-            game.gestures.line_reach,
-            id(game.last_camera_frame),
-        )
+        key = preview_key(game)
         if key != self._preview_key:
-            frame = game.last_camera_frame
-            if game.last_pose and game.last_pose.present:
-                frame = game.pose_tracker.draw_debug_frame(
-                    frame, game.last_pose, raw=game.raw_landmarks
-                )
-                frame = game.gestures.draw_punch_boundary(
-                    frame, game.last_pose, game.calibrator.existing
-                )
+            frame = render_preview(game, game.last_camera_frame, game.last_pose)
             rgb = frame[:, :, ::-1].copy()
             image = pygame.image.frombuffer(rgb, (rgb.shape[1], rgb.shape[0]), "RGB")
             self._preview_surface = pygame.transform.smoothscale(image, (200, 112))
+            label_guides(self._preview_surface, game.fonts)
             self._preview_key = key
         surface.blit(self._preview_surface, (24, 170))
 

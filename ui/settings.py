@@ -7,6 +7,7 @@ import config
 from core.state_manager import Scene
 from ui.assets import load_image
 from ui import theme
+from ui.camera_preview import preview_key, render_preview, label_guides
 from ui.fonts import cached_text
 from camera.camera_manager import probe_cameras  # compatibility; never called by the UI
 
@@ -28,6 +29,8 @@ class SettingsScene(Scene):
         self._drag_row = None
         self._mouse_pos = (-1, -1)
         self.overlay = None
+        self._preview_key = None
+        self._preview = None
         self.cameras = list(game.camera.devices)
         self.back_rect = pygame.Rect(60, 650, 180, 44)
         self.retry_rect = pygame.Rect(760, 600, 180, 42)
@@ -42,7 +45,7 @@ class SettingsScene(Scene):
         if self.tab == 0:
             self._rows = [
                 row("input_mode", "INPUT MODE", "list", options=["camera", "keyboard"]),
-                row("sensitivity", "MOVEMENT SENSITIVITY", "range", min=0.5, max=2.0, step=0.1),
+                row("sensitivity", "MOVEMENT RESPONSE", "range", min=0.5, max=2.0, step=0.1),
                 row("punch_sensitivity", "PUNCH SENSITIVITY", "range", min=0.5, max=3.0, step=0.1),
             ]
         elif self.tab == 1:
@@ -212,7 +215,9 @@ class SettingsScene(Scene):
         theme.background(surface)
         surface.blit(cached_text(f["large"], "SETTINGS", C["title_white"]), (60, 40))
         surface.blit(
-            cached_text(f["small"], "TAB: PAGE   ARROWS: SELECT / CHANGE   ESC: BACK", C["text_dim"]),
+            cached_text(
+                f["small"], "TAB: PAGE   ARROWS: SELECT / CHANGE   ESC: BACK", C["text_dim"]
+            ),
             (60, 88),
         )
         for i, rect in enumerate(self.tab_rects):
@@ -262,11 +267,15 @@ class SettingsScene(Scene):
             pose = game.last_pose
             frame = game.last_camera_frame
             if frame is not None and pose is not None:
-                frame = game.pose_tracker.draw_debug_frame(frame, pose, raw=game.raw_landmarks)
-                frame = game.gestures.draw_punch_boundary(frame, pose, game.calibrator.existing)
-                rgb = frame[:, :, ::-1].copy()
-                image = pygame.image.frombuffer(rgb, (rgb.shape[1], rgb.shape[0]), "RGB")
-                surface.blit(pygame.transform.smoothscale(image, (460, 259)), (760, 190))
+                key = preview_key(game)
+                if key != self._preview_key:
+                    frame = render_preview(game, frame, pose)
+                    rgb = frame[:, :, ::-1].copy()
+                    image = pygame.image.frombuffer(rgb, (rgb.shape[1], rgb.shape[0]), "RGB")
+                    self._preview = pygame.transform.smoothscale(image, (460, 259))
+                    label_guides(self._preview, game.fonts)
+                    self._preview_key = key
+                surface.blit(self._preview, (760, 190))
             else:
                 pygame.draw.rect(surface, (30, 28, 26), (760, 190, 460, 259))
             for rect, label in (
@@ -294,8 +303,9 @@ class SettingsScene(Scene):
                     "CHARGE: hold J or K for 5 seconds",
                     "READY: your next punch uses the ability",
                     "BLOCK / GET UP: SPACE",
-                    "LATERAL MOVEMENT / FIXED FIGHTER SIZE",
+                    "CAMERA L / CENTER / R MATCHES ARENA",
+                    "RESPONSE changes follow speed, not range",
                     "R: recenter body  /  F4: camera preview",
                 )
             ):
-                surface.blit(cached_text(f["small"], label, C["text"]), (760, 210 + i * 36))
+                surface.blit(cached_text(f["small"], label, C["text"]), (760, 210 + i * 34))

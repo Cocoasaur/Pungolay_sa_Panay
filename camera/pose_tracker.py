@@ -500,10 +500,10 @@ class PoseTracker:
     # debug rendering (used by the CAMERA DEBUG view)
     # ------------------------------------------------------------------
     def draw_debug_frame(
-        self, bgr_frame: np.ndarray, pose: PoseData, raw: bool = False
+        self, bgr_frame: np.ndarray, pose: PoseData, raw: bool = False, mirror: bool = False
     ) -> np.ndarray:
         """Draw landmarks, skeleton, bounding box and center line on a copy."""
-        out = bgr_frame.copy()
+        out = cv2.flip(bgr_frame, 1) if mirror else bgr_frame.copy()
         if not pose.present:
             return out
         w, h = out.shape[1], out.shape[0]
@@ -511,7 +511,7 @@ class PoseTracker:
         landmarks = pose.raw_landmarks if raw and pose.raw_landmarks else pose.landmarks
         for index, (x, y, _z, vis) in landmarks.items():
             if vis > config.POSE_MIN_LANDMARK_VIS:
-                pts[index] = (int(x * w), int(y * h))
+                pts[index] = (round((1 - x if mirror else x) * (w - 1)), int(y * h))
 
         for a, b in SKELETON:
             if a in pts and b in pts:
@@ -539,7 +539,14 @@ class PoseTracker:
                 cv2.putText(
                     out,
                     "LEFT" if index == LM_LEFT_WRIST else "RIGHT",
-                    (max(0, x - 15), max(15, y - 10)),
+                    (
+                        max(0, min(w - 55, x - 15)),
+                        (
+                            min(h - 4, max(32, y + 20))
+                            if index == LM_RIGHT_WRIST
+                            else max(15, min(h - 30, y - 10))
+                        ),
+                    ),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.45,
                     color,
@@ -556,7 +563,7 @@ class PoseTracker:
             min_y, max_y = max(0, min(ys) - 60), min(h - 1, max(ys) + 40)
             cv2.rectangle(out, (min_x, min_y), (max_x, max_y), (200, 200, 90), 1)
 
-        cx = int(pose.body_center_x * w)
+        cx = round((1 - pose.body_center_x if mirror else pose.body_center_x) * (w - 1))
         cv2.line(out, (cx, 0), (cx, h), (90, 160, 220), 1)
         return out
 
