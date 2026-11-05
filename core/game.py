@@ -18,6 +18,7 @@ import config
 from camera.calibration import CalibrationData, Calibrator
 from camera.camera_manager import CameraManager, CameraSample
 from camera.distance_estimator import DistanceEstimator
+from camera.movement import MovementController
 from camera.gesture_detector import GestureDetector
 from camera.pose_tracker import (
     LM_LEFT_SHOULDER,
@@ -48,6 +49,9 @@ class Game:
         # pygame shell
         # ------------------------------------------------------------------
         pygame.init()
+        from ui import theme
+
+        theme.fitted.cache_clear()
         pygame.display.set_caption(f"{config.GAME_TITLE} v{config.VERSION}")
         self.canvas = pygame.Surface((config.BASE_WIDTH, config.BASE_HEIGHT))
         self._scene_surface = pygame.Surface(self.canvas.get_size())
@@ -91,6 +95,7 @@ class Game:
         )
         self.gestures = GestureDetector(punch_sensitivity=self.settings["punch_sensitivity"])
         self.gestures.line_reach = self.settings.get("punch_line_reach", config.PUNCH_LINE_REACH)
+        self.movement = MovementController()
         self.keyboard = KeyboardInput()
 
         # final logical input produced by the pipeline
@@ -189,7 +194,9 @@ class Game:
             previous = getattr(self, "_last_sample_time", None)
             dt = sample.captured_at - previous if previous is not None else 1 / 30
             if dt > config.TRACKING_LOST_GRACE or self._pose_gone:
-                self.gestures.update(PoseData(present=False), 0, self.calibrator.existing)
+                self.gestures.update(
+                    PoseData(present=False), 0, self.calibrator.existing, now=time.monotonic()
+                )
                 dt = 1 / 30
             dt = max(0.001, min(config.TRACKING_LOST_GRACE, dt))
             self._last_sample_time = sample.captured_at
@@ -247,12 +254,18 @@ class Game:
 
     def _missing_tracking(self, dt):
         self._pose_gone = True
+        if hasattr(self, "movement"):
+            self.movement.lose()
         self._tracking_lost_time += dt
-        self.gestures.update(PoseData(present=False), 0, self.calibrator.existing)
+        self.gestures.update(
+            PoseData(present=False), 0, self.calibrator.existing, now=time.monotonic()
+        )
         self.last_pose = PoseData(present=False)
         self.tracking = replace(
             self.tracking,
             present=False,
+            movement_valid=False,
+            movement_status="TRACKING LOST",
             pose_present=False,
             left_punch=False,
             right_punch=False,
@@ -261,8 +274,10 @@ class Game:
             charge_completed=False,
             guard=False,
             hands_up=False,
-            is_charging=False,
-            charge_progress=0.0,
+            is_charging=self.gestures.is_charging,
+            charge_progress=self.gestures.charge_progress,
+            charge_side=self.gestures.charge_side,
+            charge_hint=self.gestures.charge_hint,
         )
         self.last_tracking = self.tracking
         return self.tracking
@@ -303,49 +318,38 @@ class Game:
         dt: Optional[float] = None,
         freeze_depth: bool = False,
     ) -> None:
-        # horizontal position = mirrored lateral (body center) + depth
-        # (calibration-relative distance). The player faces the camera, so
-        # stepping right means the body moves to image-left -> mirror it.
-        # Closer to the camera (ratio > 1) advances right toward the enemy,
-        # farther (ratio < 1) retreats left. The depth term needs calibration.
-        lateral = self._lateral_position(pose)
-        if self.settings.get("mirror_input"):
-            lateral = 1.0 - lateral
-        if self._resting_ratio is None and not freeze_depth:
-            self._resting_ratio = ratio
-        if self._resting_lateral is None:
-            self._resting_lateral = lateral
-
-        lateral_delta = self._apply_deadband(
-            lateral - self._resting_lateral, config.TRACKING_LATERAL_DEADBAND
-        )
-        if freeze_depth:
-            # Preserve the last trustworthy distance component.  Resetting
-            # it to zero would itself make the boxer dash during a punch.
-            depth_delta = self._stable_depth_delta
-        else:
-            depth_delta = self._apply_deadband(
-                ratio - self._resting_ratio, config.TRACKING_DEPTH_DEADBAND
-            )
-            self._stable_depth_delta = depth_delta
-        target = config.DEPTH_NEUTRAL_HP
-        target += lateral_delta * self.settings["sensitivity"]
-        target += depth_delta * config.DEPTH_MOVE_GAIN
-        target = min(config.DEPTH_HP_MAX, max(config.DEPTH_HP_MIN, target))
-
-        # This is time-based rather than a per-render-frame factor, so the
-        # response stays consistent whether the camera runs at 10 or 30 pose
-        # frames per second.
         frame_dt = self.dt if dt is None else dt
-        smooth = max(0.0, min(1.0, self.settings["smoothing"]))
-        response_time = config.TRACKING_RESPONSE_TIME + smooth * (
-            config.TRACKING_RESPONSE_TIME_MAX - config.TRACKING_RESPONSE_TIME
+        if not hasattr(self, "movement"):
+            self.movement = MovementController()
+        self._smooth_x = self.movement.update(
+            pose,
+            frame_dt,
+            mirror=self.settings.get("mirror_input", True),
+            sensitivity=self.settings["sensitivity"],
         )
-        alpha = 1.0 - pow(2.718281828459045, -max(0.0, frame_dt) / response_time)
-        self._smooth_x += (target - self._smooth_x) * alpha
-
+        if not self.movement.valid:
+            scene = next(
+                (
+                    s
+                    for s in getattr(getattr(self, "states", None), "_stack", [])
+                    if s.name == "gameplay"
+                ),
+                None,
+            )
+            if scene and scene.player:
+                minimum = config.ARENA_MARGIN + config.FIGHTER_BODY_WIDTH / 2
+                self.movement.position = (scene.player.x - minimum) / (
+                    config.BASE_WIDTH - 2 * minimum
+                )
+                self._smooth_x = self.movement.position
+        # Lateral-only boxing keeps both sprite geometry and movement stable.
+        scale = 1.0
         tracking = TrackingData(
             present=True,
+            movement_valid=self.movement.valid,
+            movement_status=self.movement.state,
+            charge_side=self.gestures.charge_side,
+            charge_hint=self.gestures.charge_hint,
             horizontal_position=min(1.0, max(0.0, self._smooth_x)),
             distance_ratio=ratio,
             distance_level=level,
@@ -406,12 +410,28 @@ class Game:
         fallback calibration (whose ratio is often far from 1.0) useful
         without moving a still player as a fight begins.
         """
+        self.movement = MovementController()
         self._smooth_x = config.DEPTH_NEUTRAL_HP
         self._resting_ratio = None
         self._resting_lateral = None
         self._stable_depth_delta = 0.0
         self._depth_freeze_remaining = 0.0
         self._last_lateral = None
+
+    def recenter_movement(self):
+        position = self.tracking.horizontal_position
+        scene = next((s for s in self.states._stack if s.name == "gameplay"), None)
+        if scene and scene.player:
+            minimum = config.ARENA_MARGIN + config.FIGHTER_BODY_WIDTH / 2
+            maximum = config.BASE_WIDTH - minimum
+            position = (scene.player.x - minimum) / (maximum - minimum)
+        self.movement.recenter(position)
+        self.tracking = replace(
+            self.tracking,
+            horizontal_position=position,
+            movement_valid=False,
+            movement_status="REACQUIRING",
+        )
 
     def poll_camera_for_calibration(self):
         """Feed one camera frame through the pipeline; used by the
@@ -607,6 +627,9 @@ class Game:
                         self.keyboard.handle_event(event)
                     self.states.handle_event(event)
 
+                from ui.animation_cache import cache
+
+                cache.pump()
                 self.save_manager.flush_settings()
                 self.states.update(dt)
 
@@ -722,6 +745,9 @@ class Game:
             self.save_manager.save_settings()
         except Exception:
             pass
+        from ui.animation_cache import cache
+
+        cache.cancel()
         self.camera.release()
         self.pose_tracker.close()
         pygame.quit()

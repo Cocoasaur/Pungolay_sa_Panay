@@ -31,7 +31,7 @@ class ChargeTests(unittest.TestCase):
             if detector.charge_completed:
                 edges.append(i)
         self.assertEqual(len(edges), 1)
-        self.assertIn(edges[0], (99, 100))
+        self.assertIn(edges[0], (101, 102))  # 100 ms entry, then five observed seconds
         player = Player()
         player.update(0.016, TrackingData(charge_completed=True), 0)
         detector.update(pose(), 0.05, cal, now=6)
@@ -101,7 +101,7 @@ class ChargeTests(unittest.TestCase):
         data = TrackingData(present=True, horizontal_position=0.2)
         player.update(0.016, data, 0)
         self.assertEqual(player.state, "walk")
-        for i in range(30):
+        for i in range(120):
             player.update(0.016, data, i * 0.016)
         self.assertEqual(player.state, "idle")
         self.assertEqual(player.motion_direction, 0)

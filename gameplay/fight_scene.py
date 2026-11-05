@@ -6,6 +6,7 @@ the Game shell -- this scene only consumes TrackingData.
 """
 
 from __future__ import annotations
+from ui.fonts import cached_text
 
 import time
 from typing import Optional
@@ -19,9 +20,11 @@ from gameplay.ai import EnemyAI
 from gameplay.combat import CombatManager
 from gameplay.enemy import Enemy
 from gameplay.player import Player
+from gameplay.spacing import separate_fighters
 from gameplay.tutorial import TutorialManager
 from ui.hud import HUD
 from ui.sprites import draw_boxer
+from ui import theme
 
 C = config.COLORS
 
@@ -35,6 +38,10 @@ class FightScene(Scene):
     def __init__(self, game) -> None:
         super().__init__(game)
         self.hud = HUD(game.fonts)
+        self._preview_key = None
+        self._preview_surface = None
+        self.preview_toggle_rect = pygame.Rect(24, 144, 200, 26)
+        self.recenter_rect = pygame.Rect(24, 286, 200, 30)
         self.combat = CombatManager(game.events)
         self.tutorial = TutorialManager()
         self.player: Optional[Player] = None
@@ -54,6 +61,10 @@ class FightScene(Scene):
         # Keep camera tracking aligned with this spawn instead of carrying a
         # target from a menu, calibration screen, or the preceding opponent.
         game.reset_tracking_position()
+        minimum = config.ARENA_MARGIN + self.player.body_w / 2
+        position = (self.player.x - minimum) / (config.BASE_WIDTH - 2 * minimum)
+        game.movement.recenter(position)
+        game.keyboard.reset(position)
         self.enemy = Enemy(game.progression.opponent, x=config.BASE_WIDTH // 2 + 180)
         self.ai = EnemyAI(self.enemy, self.player)
         self.combat.reset()
@@ -71,6 +82,9 @@ class FightScene(Scene):
 
     def enter(self) -> None:
         self._reset_for_opponent()
+        from ui.animation import prewarm_pair
+
+        prewarm_pair(("player", 1), (self.game.progression.opponent_id, -1))
 
     def exit(self):
         if self.player is not None:
@@ -81,6 +95,12 @@ class FightScene(Scene):
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN:
             key = pygame.key.name(event.key)
+            if key == "f4":
+                self._toggle_preview()
+                return
+            if key == "r":
+                self.game.recenter_movement()
+                return
             if key == "escape":
                 if self.combat.fight_over:
                     return
@@ -89,19 +109,33 @@ class FightScene(Scene):
 
                 self.game.states.push(PauseMenu(self.game))
 
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.preview_toggle_rect.collidepoint(event.pos):
+                self._toggle_preview()
+            elif self.recenter_rect.collidepoint(event.pos):
+                self.game.recenter_movement()
+
+    def _toggle_preview(self):
+        self.game.settings["camera_preview"] = not self.game.settings.get("camera_preview", True)
+        self.game.apply_settings_changes()
+
     # ------------------------------------------------------------------
     def update(self, dt: float) -> None:
         game = self.game
         now = time.monotonic()
         tracking = game.get_current_tracking()
+        self.player.is_charging = tracking.is_charging and not self.player.ability_ready
+        self.player.charge_progress = 1 if self.player.ability_ready else tracking.charge_progress
 
-        if self.intro_timer > 0:
-            self.intro_timer -= dt
-            return
-
-        # Completion is an input edge; preserve it even during hit stop.
         if tracking.charge_completed:
             self.player.ability_ready = True
+
+        if self.intro_timer > 0:
+            from ui.animation_cache import cache
+
+            if not cache.pending:
+                self.intro_timer -= dt
+            return
 
         # fighters freeze during the hit-stop beat
         if self.combat.hitstop > 0:
@@ -109,7 +143,9 @@ class FightScene(Scene):
             return
 
         # -- fighters ----------------------------------------------------
-        self.player.update(dt, tracking, now)
+        previous_enemy_x = self.enemy.x
+        previous_player_x = self.player.x
+        self.player.update(dt, tracking, now, defer_motion=True)
         self.enemy.update(dt, now)
         if self.ai is not None and not self.combat.fight_over:
             previous_enemy_state = self.enemy.state
@@ -117,6 +153,14 @@ class FightScene(Scene):
             if self.enemy.state != previous_enemy_state:
                 self.enemy.action_t = 0.0
 
+        separate_fighters(self.player, self.enemy, previous_player_x, previous_enemy_x)
+        self.player.finalize_motion(dt, previous_player_x)
+        enemy_dx = self.enemy.x - previous_enemy_x
+        self.enemy.motion_direction = (
+            (1 if enemy_dx > 0 else -1)
+            if abs(enemy_dx) / max(0.001, dt) >= config.WALK_ENTER_SPEED
+            else 0
+        )
         # -- combat ------------------------------------------------------
         self.combat.resolve(self.player, self.enemy, dt)
         self.combat.update(dt, self.player, self.enemy)
@@ -173,21 +217,29 @@ class FightScene(Scene):
                 config.GROUND_Y,
                 facing=-1,
                 state=(
-                    self.enemy.state
-                    if self.enemy.state not in ("approach", "retreat")
-                    or self.enemy.motion_direction
-                    else "idle"
+                    self.enemy.hit_pose[0]
+                    if self.enemy.state == "hit"
+                    else (
+                        self.enemy.state
+                        if self.enemy.state not in ("approach", "retreat")
+                        or self.enemy.motion_direction
+                        else "idle"
+                    )
                 ),
                 anim_t=self.enemy.anim_t,
                 scale=1.0,
                 trunks_color=self.enemy.trunks_color,
-                flash=False,
+                flash=self.enemy.state == "hit" and self.enemy.state_timer > 0.15,
                 hit_lean=0.0,
                 fighter_id=game.progression.opponent_id,
                 action_time=(
-                    self.enemy.anim_t
-                    if self.enemy.state in ("approach", "retreat")
-                    else self.enemy.action_t
+                    self.enemy.hit_pose[1]
+                    if self.enemy.state == "hit"
+                    else (
+                        self.enemy.anim_t
+                        if self.enemy.state in ("idle", "approach", "retreat")
+                        else self.enemy.action_t
+                    )
                 ),
                 punch_side=self.enemy.attack_side,
                 charged=self.enemy.style == "haymaker",
@@ -198,21 +250,36 @@ class FightScene(Scene):
                 config.GROUND_Y,
                 facing=1,
                 state=(
-                    "charging"
-                    if self.player.is_charging and self.player.state == "idle"
-                    else self.player.state
+                    self.player.hit_pose[0]
+                    if self.player.state == "hit"
+                    else (
+                        "charging"
+                        if self.player.is_charging and self.player.state == "idle"
+                        else self.player.state
+                    )
                 ),
                 anim_t=self.player.anim_t,
                 scale=self.player.scale,
                 trunks_color=C["trunks_player"],
-                flash=self.player.state == "hit",
+                flash=self.player.state == "hit" and self.player.state_timer > 0.22,
                 hit_lean=1.0 if self.player.state == "hit" else 0.0,
                 fighter_id="player",
                 action_time=(
-                    self.player.animation_t if self.player.state == "walk" else self.player.action_t
+                    self.player.hit_pose[1]
+                    if self.player.state == "hit"
+                    else (
+                        self.player.animation_t
+                        if self.player.state in ("idle", "walk")
+                        else self.player.action_t
+                    )
                 ),
                 charged=self.player.is_haymaker_punch,
                 motion_direction=self.player.motion_direction,
+                punch_side=(
+                    game.last_tracking.charge_side
+                    if self.player.is_charging and game.last_tracking
+                    else self.player.punch_side
+                ),
             )
 
             # debug: show hitboxes
@@ -229,7 +296,7 @@ class FightScene(Scene):
             # impact text
             for impact in self.combat.impacts:
                 alpha = max(0, int(255 * (impact.life / 0.7)))
-                surf = game.fonts["large"].render(impact.text, True, C["title_white"])
+                surf = cached_text(game.fonts["large"], impact.text, C["title_white"])
                 surf.set_alpha(alpha)
                 surface.blit(surf, surf.get_rect(center=(impact.x, impact.y)))
 
@@ -273,13 +340,9 @@ class FightScene(Scene):
         banner = self.intro_banner
         center_x = config.BASE_WIDTH // 2
 
-        round_text = f["medium"].render(
-            f"STARTING IN {max(1, int(self.intro_timer + 0.999))}", True, C["warn_yellow"]
-        )
-        name_text = f["big"].render(banner["opponent"].upper(), True, C["title_white"])
-        loc_text = f["small"].render(
-            f"{banner['location'].upper()}  -  {banner['subtitle'].upper()}", True, C["title_white"]
-        )
+        round_text = cached_text(f["medium"], f"STARTING IN {max(1, int(self.intro_timer + 0.999))}", C["warn_yellow"])
+        name_text = cached_text(f["big"], banner["opponent"].upper(), C["title_white"])
+        loc_text = cached_text(f["small"], f"{banner['location'].upper()}  -  {banner['subtitle'].upper()}", C["title_white"])
 
         panel = pygame.Surface((560, 220), pygame.SRCALPHA)
         panel.fill((10, 9, 8, 210))
@@ -298,40 +361,54 @@ class FightScene(Scene):
     def _draw_camera_preview(self, surface: pygame.Surface) -> None:
         """Live camera inset so players can verify pose alignment in-match."""
         game = self.game
-        if game.settings["input_mode"] != "camera" or game.last_camera_frame is None:
+        if game.settings["input_mode"] != "camera":
             return
-        frame = game.last_camera_frame
-        if game.last_pose is not None and game.last_pose.present:
-            frame = game.pose_tracker.draw_debug_frame(frame, game.last_pose)
-            frame = game.gestures.draw_punch_boundary(
-                frame, game.last_pose, game.calibrator.existing
-            )
-        rgb = frame[:, :, ::-1]
-        camera_surface = pygame.image.frombuffer(rgb.copy(), (rgb.shape[1], rgb.shape[0]), "RGB")
-        preview_size = (256, 144)
-        preview = pygame.transform.scale(camera_surface, preview_size)
-        x, y = 18, 82
-        panel = pygame.Rect(x - 4, y - 22, preview_size[0] + 8, preview_size[1] + 26)
-        pygame.draw.rect(surface, C["panel"], panel)
-        pygame.draw.rect(surface, C["border"], panel, 1)
-        label = game.fonts["tiny"].render("CAMERA PREVIEW", True, C["text"])
-        surface.blit(label, (x, y - 18))
-        surface.blit(preview, (x, y))
+        visible = game.settings.get("camera_preview", True)
+        theme.button(
+            surface, self.preview_toggle_rect, "HIDE CAMERA / F4" if visible else "SHOW CAMERA / F4"
+        )
+        self.recenter_rect.y = 286 if visible else 182
+        theme.button(surface, self.recenter_rect, "RECENTER / R")
+        if not visible:
+            return
+        if game.last_camera_frame is None:
+            theme.panel(surface, pygame.Rect(24, 170, 200, 112))
+            return
+        key = (
+            getattr(game.tracking, "sample_id", -1),
+            game.raw_landmarks,
+            game.gestures.line_reach,
+            id(game.last_camera_frame),
+        )
+        if key != self._preview_key:
+            frame = game.last_camera_frame
+            if game.last_pose and game.last_pose.present:
+                frame = game.pose_tracker.draw_debug_frame(
+                    frame, game.last_pose, raw=game.raw_landmarks
+                )
+                frame = game.gestures.draw_punch_boundary(
+                    frame, game.last_pose, game.calibrator.existing
+                )
+            rgb = frame[:, :, ::-1].copy()
+            image = pygame.image.frombuffer(rgb, (rgb.shape[1], rgb.shape[0]), "RGB")
+            self._preview_surface = pygame.transform.smoothscale(image, (200, 112))
+            self._preview_key = key
+        surface.blit(self._preview_surface, (24, 170))
 
     def _draw_tutorial(self, surface: pygame.Surface) -> None:
         f = self.game.fonts
-        x, y = (300, 84) if self.game.settings["input_mode"] == "camera" else (24, 84)
+        x, y = (244, 148) if self.game.settings["input_mode"] == "camera" else (24, 148)
         panel = pygame.Surface((360, 200), pygame.SRCALPHA)
         panel.fill((10, 9, 8, 200))
         surface.blit(panel, (x, y))
         pygame.draw.rect(surface, C["border"], (x, y, 360, 200), 1)
-        title = f["small"].render("TUTORIAL", True, C["warn_yellow"])
+        title = cached_text(f["small"], "TUTORIAL", C["warn_yellow"])
         surface.blit(title, (x + 12, y + 8))
         yy = y + 34
         for check in self.tutorial._checks:
             color = C["ok_green"] if check["done"] else C["text_dim"]
             mark = "OK  " if check["done"] else "-  "
-            line = f["tiny"].render(mark + check["text"], True, color)
+            line = cached_text(f["tiny"], mark + check["text"], color)
             surface.blit(line, (x + 12, yy))
             yy += 26
 
