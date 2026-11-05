@@ -64,6 +64,9 @@ class Player:
         self.charge_progress = 0.0
         self.is_charging = False
         self.motion_direction = 0
+        self._velocity = 0.0
+        self._walk_still = 0.0
+        self.hit_pose = ("idle", 0.0)
         self.animation_t = 0.0
         self.action_t = 0.0
         self.anim_t = 0.0  # animation clock (idle bob, etc.)
@@ -98,8 +101,12 @@ class Player:
     def is_knocked_down(self) -> bool:
         return self.state in ("knockdown", "ko")
 
+    @property
+    def is_incapacitated(self):
+        return self.state in ("knockdown", "getup", "ko")
+
     # ------------------------------------------------------------------
-    def update(self, dt: float, tracking: TrackingData, now: float) -> None:
+    def update(self, dt: float, tracking: TrackingData, now: float, defer_motion=False) -> None:
         self.anim_t += dt
         self.animation_t += dt
         self.action_t += dt
@@ -109,26 +116,44 @@ class Player:
         self.charge_progress = 1.0 if self.ability_ready else tracking.charge_progress
         previous_x = self.x
         previous_state = self.state
-        self.scale = tracking.player_scale
+        self.scale = 1.0
         self.guarding = False
         self.invuln_timer = max(0.0, self.invuln_timer - dt)
         self._punch_cooldown = max(0.0, self._punch_cooldown - dt)
 
+        if self.state == "getup":
+            self.state_timer -= dt
+            if self.state_timer <= 0:
+                self.state = "idle"
+                self.action_t = 0
+                self.invuln_timer = 1.2
+            return
         if self.is_knocked_down:
             self._update_knockdown(dt, tracking)
             return
 
-        # -- movement (smoothed, clamped to the arena) ------------------
-        if tracking.present:
-            arena_min = config.ARENA_MARGIN + self.body_w * self.scale / 2
-            arena_max = config.BASE_WIDTH - config.ARENA_MARGIN - self.body_w * self.scale / 2
+        # -- movement: bounded speed and acceleration, not render-rate lerp --
+        half = self.body_w / 2
+        arena_min = config.ARENA_MARGIN + half
+        arena_max = config.BASE_WIDTH - config.ARENA_MARGIN - half
+        if tracking.present and tracking.movement_valid:
             target_x = arena_min + tracking.horizontal_position * (arena_max - arena_min)
-            k = 1.0 - (0.05 ** (dt * 60.0))  # residual jitter removal
-            self.x += (target_x - self.x) * k
-        half = self.body_w * self.scale / 2
-        self.x = max(
-            config.ARENA_MARGIN + half, min(config.BASE_WIDTH - config.ARENA_MARGIN - half, self.x)
-        )
+            error = target_x - self.x
+            desired = (
+                max(-self.move_speed, min(self.move_speed, error / 0.06)) if abs(error) > 0.5 else 0
+            )
+            acceleration = self.move_speed / config.MOVEMENT_ACCEL_TIME
+            self._velocity += max(
+                -acceleration * dt, min(acceleration * dt, desired - self._velocity)
+            )
+            step = self._velocity * dt
+            if step * error > 0 and abs(step) > abs(error):
+                step = error
+                self._velocity = 0
+            self.x += step
+        else:
+            self._velocity = 0
+        self.x = max(arena_min, min(arena_max, self.x))
 
         # -- guard -------------------------------------------------------
         if tracking.guard and self.state in ("idle", "walk", "guard"):
@@ -168,11 +193,8 @@ class Player:
         elif self.state == "guard":
             if not self.guarding:
                 self.state = "idle"
-        else:
-            dx = self.x - previous_x
-            moving = abs(dx) > max(0.05, dt * 5.0)
-            self.motion_direction = (1 if dx > 0 else -1) if moving else 0
-            self.state = "walk" if moving else "idle"
+        elif not defer_motion:
+            self.finalize_motion(dt, previous_x)
 
         if self.state != previous_state:
             self.action_t = 0.0
@@ -180,10 +202,26 @@ class Player:
             self.action_t = P["punch_active_end"] + P["punch_recover"] - self.state_timer
 
     # ------------------------------------------------------------------
+    def finalize_motion(self, dt, previous_x):
+        if self.state not in ("idle", "walk"):
+            return
+        dx = self.x - previous_x
+        speed = abs(dx) / max(dt, 0.001)
+        if speed >= config.WALK_ENTER_SPEED:
+            self.state = "walk"
+            self._walk_still = 0
+        elif speed <= config.WALK_EXIT_SPEED:
+            self._walk_still += dt
+            if self._walk_still >= config.WALK_STOP_TIME:
+                self.state = "idle"
+        self.motion_direction = (
+            (1 if dx > 0 else -1) if self.state == "walk" and abs(dx) > 0.01 else 0
+        )
+
     def _start_punch(self, side: str, now: float, is_haymaker: bool = False) -> bool:
         if self._punch_cooldown > 0.0:
             return False
-        if self.state in ("punch_l", "punch_r", "hit") or self.is_knocked_down:
+        if self.state in ("punch_l", "punch_r", "hit") or self.is_incapacitated:
             return False
         self.is_haymaker_punch = self.ability_ready
         self.accepted_attack = AttackSnapshot(
@@ -236,11 +274,23 @@ class Player:
     # ------------------------------------------------------------------
     def take_hit(self, damage: float, knockback: float, from_direction: int) -> bool:
         """Apply damage. Returns False when the hit is absorbed (i-frames)."""
-        if self.is_knocked_down or self.invuln_timer > 0.0:
+        if self.is_incapacitated or self.invuln_timer > 0.0:
             return False
         if self.guarding:
             damage *= 1.0 - self.guard_damage_reduction
             self.stamina = max(0.0, self.stamina - P["block_stamina_cost"])
+        self.hit_pose = (
+            self.state if self.state != "hit" else self.hit_pose[0],
+            (
+                (
+                    self.anim_t
+                    if self.state in ("idle", "walk", "approach", "retreat")
+                    else self.action_t
+                )
+                if self.state != "hit"
+                else self.hit_pose[1]
+            ),
+        )
         self.hp = max(0.0, self.hp - damage)
         self.state = "hit"
         self.state_timer = 0.3
@@ -250,6 +300,9 @@ class Player:
 
     def force_knockdown(self) -> None:
         self.state = "knockdown"
+        self.action_t = 0.0
+        self._velocity = 0.0
+        self.guarding = False
         self.knockdown_count = 0
         self.knockdown_time = 0.0
         self.active_hitbox = None
@@ -264,17 +317,19 @@ class Player:
             if self.knockdown_count >= config.KNOCKDOWN_MAX_COUNT:
                 self.state = "ko"
                 return
-        if tracking.hands_up:
+        if tracking.hands_up and self.knockdown_time >= config.KNOCKDOWN_FALL_TIME:
             self.get_up()
 
     def get_up(self) -> None:
         if self.state == "ko":
             return
-        self.state = "idle"
+        self.state = "getup"
+        self.state_timer = config.GETUP_TIME
+        self.action_t = 0.0
         self.hp = max(self.hp, self.max_hp * P["knockdown_recover_hp"])
         self.knockdown_count = 0
         self.knockdown_time = 0.0
-        self.invuln_timer = 1.2  # brief protection after getting up
+        self.invuln_timer = config.GETUP_TIME + 1.2
 
     def reset(self, x: Optional[float] = None) -> None:
         self.__init__(x if x is not None else self.x)
