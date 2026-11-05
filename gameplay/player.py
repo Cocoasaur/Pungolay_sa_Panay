@@ -139,10 +139,13 @@ class Player:
         if tracking.present and tracking.movement_valid:
             target_x = arena_min + tracking.horizontal_position * (arena_max - arena_min)
             error = target_x - self.x
+            response = max(0.5, min(2.0, tracking.movement_response))
             desired = (
-                max(-self.move_speed, min(self.move_speed, error / 0.06)) if abs(error) > 0.5 else 0
+                max(-self.move_speed, min(self.move_speed, error / (0.06 / response)))
+                if abs(error) > 0.5
+                else 0
             )
-            acceleration = self.move_speed / config.MOVEMENT_ACCEL_TIME
+            acceleration = self.move_speed / (config.MOVEMENT_ACCEL_TIME / response)
             self._velocity += max(
                 -acceleration * dt, min(acceleration * dt, desired - self._velocity)
             )

@@ -61,7 +61,7 @@ class CameraTrackingTests(unittest.TestCase):
         self.assertEqual(game._smooth_x, config.DEPTH_NEUTRAL_HP)
         resting = self.settle(game, self.pose(), 1.8)
         stable = self.settle(game, self.pose(), 1.8, frames=60)
-        self.assertAlmostEqual(resting, config.DEPTH_NEUTRAL_HP, places=6)
+        self.assertAlmostEqual(resting, 0.5, places=6)
         self.assertAlmostEqual(stable, resting, places=6)
 
     def test_lateral_moves_and_camera_distance_is_ignored(self):
@@ -70,19 +70,19 @@ class CameraTrackingTests(unittest.TestCase):
         for i in range(1, 11):
             self.settle(game, self.pose(0.5 - 0.02 * i), 1.8, frames=1)
         right = self.settle(game, self.pose(0.30), 1.8)
-        self.assertGreater(right, config.DEPTH_NEUTRAL_HP + 0.15)
+        self.assertAlmostEqual(right, 0.75)
         for i in range(1, 21):
             self.settle(game, self.pose(0.3 + 0.02 * i), 1.8, frames=1)
         left = self.settle(game, self.pose(0.70), 1.8)
-        self.assertLess(left, config.DEPTH_NEUTRAL_HP - 0.15)
+        self.assertAlmostEqual(left, 0.25)
 
         game.reset_tracking_position()
         self.settle(game, self.pose(), 1.8)
         closer = self.settle(game, self.pose(), 2.05)
-        self.assertEqual(closer, config.DEPTH_NEUTRAL_HP)
+        self.assertEqual(closer, 0.5)
         self.assertEqual(game.tracking.player_scale, 1.0)
         farther = self.settle(game, self.pose(), 1.55)
-        self.assertEqual(farther, config.DEPTH_NEUTRAL_HP)
+        self.assertEqual(farther, 0.5)
 
     def test_raised_arms_hold_depth_but_keep_lateral_control(self):
         game = self.make_game()

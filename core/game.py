@@ -325,7 +325,6 @@ class Game:
             pose,
             frame_dt,
             mirror=self.settings.get("mirror_input", True),
-            sensitivity=self.settings["sensitivity"],
         )
         if not self.movement.valid:
             scene = next(
@@ -347,6 +346,7 @@ class Game:
         tracking = TrackingData(
             present=True,
             movement_valid=self.movement.valid,
+            movement_response=max(0.5, min(2.0, float(self.settings.get("sensitivity", 1.0)))),
             movement_status=self.movement.state,
             charge_side=self.gestures.charge_side,
             charge_hint=self.gestures.charge_hint,
@@ -404,12 +404,7 @@ class Game:
         return self._last_lateral
 
     def reset_tracking_position(self) -> None:
-        """Start a fight at the fighter's neutral arena position.
-
-        The first valid pose becomes the live resting reference.  This keeps
-        fallback calibration (whose ratio is often far from 1.0) useful
-        without moving a still player as a fight begins.
-        """
+        """Freeze until stable hips establish an absolute viewport target."""
         self.movement = MovementController()
         self._smooth_x = config.DEPTH_NEUTRAL_HP
         self._resting_ratio = None
@@ -716,7 +711,12 @@ class Game:
             f"CAMERA: {self.camera.status}",
             f"POSE: {'OK' if (pose and pose.present) else 'NONE'}",
             f"BODY CONFIDENCE: {t.body_confidence:.2f}" if t else "BODY CONFIDENCE: -",
-            f"PLAYER X: {t.horizontal_position:.2f}" if t else "PLAYER X: -",
+            f"TARGET X: {t.horizontal_position*100:.1f}%" if t else "TARGET X: -",
+            (
+                f"ACTUAL X: {(game_scene.player.x-config.ARENA_MARGIN-game_scene.player.body_w/2)/(config.BASE_WIDTH-2*config.ARENA_MARGIN-game_scene.player.body_w)*100:.1f}%"
+                if game_scene
+                else "ACTUAL X: -"
+            ),
             f"DISTANCE: {t.distance_level}" if t else "DISTANCE: -",
             f"LEFT PUNCH: {bool(t.left_punch)}" if t else "LEFT PUNCH: -",
             f"RIGHT PUNCH: {bool(t.right_punch)}" if t else "RIGHT PUNCH: -",

@@ -21,6 +21,7 @@ class TrackingData:
 
     present: bool = False
     movement_valid: bool = True
+    movement_response: float = 1.0  # follower response only; never changes the target
     movement_status: str = "HOLDING"
     charge_side: str = ""
     charge_hint: str = "Pull one glove back beside your chest"

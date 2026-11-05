@@ -222,11 +222,11 @@ class PunchMovementTests(unittest.TestCase):
         turned = pose(wrist_y=0.75)
         turned.shoulder_width = 0.005
         self.poll(turned, 20)
-        self.assertAlmostEqual(self.game.tracking.horizontal_position, config.DEPTH_NEUTRAL_HP)
+        self.assertAlmostEqual(self.game.tracking.horizontal_position, 0.5)
         for i in range(1, 11):
             self.poll(pose(wrist_y=0.75, shift=-0.015 * i), 1)
         self.poll(pose(wrist_y=0.75, shift=-0.15), 20)
-        self.assertGreater(self.game.tracking.horizontal_position, config.DEPTH_NEUTRAL_HP + 0.1)
+        self.assertGreater(self.game.tracking.horizontal_position, 0.5 + 0.1)
 
     def test_missing_hips_hold_movement_during_punch(self):
         self.poll(pose(wrist_y=0.75), 20)
@@ -235,7 +235,7 @@ class PunchMovementTests(unittest.TestCase):
         del extended.landmarks[LM_RIGHT_HIP]
         extended.body_center_x = 0.1
         self.poll(extended, 20)
-        self.assertAlmostEqual(self.game.tracking.horizontal_position, config.DEPTH_NEUTRAL_HP)
+        self.assertAlmostEqual(self.game.tracking.horizontal_position, 0.5)
 
 
 if __name__ == "__main__":

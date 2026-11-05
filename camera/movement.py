@@ -1,4 +1,4 @@
-"""Fresh-sample lateral intent: noise holds position, reacquisition rebases it."""
+"""Fresh-sample intent with an absolute camera-to-arena horizontal mapping."""
 
 from collections import deque
 from statistics import median
@@ -6,24 +6,31 @@ import config
 from camera.pose_tracker import LM_LEFT_HIP, LM_RIGHT_HIP
 
 
+def camera_to_arena(camera_x):
+    """Map the visible 10–90% travel lane onto the complete legal arena."""
+    span = config.CAMERA_MOVEMENT_RIGHT - config.CAMERA_MOVEMENT_LEFT
+    return max(0.0, min(1.0, (camera_x - config.CAMERA_MOVEMENT_LEFT) / span))
+
+
 class MovementController:
     def __init__(self, position=config.DEPTH_NEUTRAL_HP):
         self.position = position
         self.state = "REACQUIRING"
         self._window = deque(maxlen=3)
-        self._anchor = None
-        self._held_position = position
+        self._anchor = None  # local jitter dead zone, never a positional offset
         self._last = None
         self._candidate = 0.0
         self._still = 0.0
         self._stable = 0.0
         self._outlier = None
+        self._mirror = None
 
     @property
     def valid(self):
         return self.state in ("HOLDING", "MOVING")
 
     def recenter(self, position=None):
+        """Freeze and reacquire; the camera viewport itself stays fixed."""
         self.__init__(self.position if position is None else position)
 
     def lose(self):
@@ -31,10 +38,16 @@ class MovementController:
         self._window.clear()
         self._stable = 0.0
         self._last = None
+        self._outlier = None
         self._candidate = self._still = 0.0
         return self.position
 
     def update(self, pose, dt, mirror=True, sensitivity=1.0):
+        # Keep sensitivity as a compatibility argument. Response is applied to
+        # the physical follower, so it cannot distort absolute target positions.
+        if self._mirror is not None and self._mirror != mirror:
+            self.recenter()
+        self._mirror = mirror
         points = [pose.lm(i) for i in (LM_LEFT_HIP, LM_RIGHT_HIP)] if pose and pose.present else []
         if len(points) != 2 or any(
             p is None or p[3] < config.MOVEMENT_MIN_CONFIDENCE for p in points
@@ -65,29 +78,26 @@ class MovementController:
             self.state = "REACQUIRING"
             if self._stable >= config.MOVEMENT_REACQUIRE_TIME:
                 self._anchor = center
-                self._held_position = self.position
+                self.position = camera_to_arena(center)
                 self.state = "HOLDING"
                 self._candidate = self._still = 0.0
             return self.position
         velocity = abs(center - self._last) / dt if self._last is not None else 0
         self._last = center
-        displacement = center - self._anchor
         if self.state == "HOLDING":
             self._candidate = (
-                self._candidate + dt if abs(displacement) >= config.MOVEMENT_ENTER_DISTANCE else 0
+                self._candidate + dt
+                if abs(center - self._anchor) >= config.MOVEMENT_ENTER_DISTANCE
+                else 0
             )
             if self._candidate < config.MOVEMENT_ENTER_TIME:
                 return self.position
             self.state = "MOVING"
             self._still = 0
-        self.position = max(
-            config.DEPTH_HP_MIN,
-            min(config.DEPTH_HP_MAX, self._held_position + displacement * sensitivity),
-        )
+        self.position = camera_to_arena(center)
         self._still = self._still + dt if velocity < config.MOVEMENT_STOP_VELOCITY else 0
         if self._still >= config.MOVEMENT_STOP_TIME:
             self.state = "HOLDING"
             self._anchor = center
-            self._held_position = self.position
             self._candidate = 0
         return self.position

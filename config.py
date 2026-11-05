@@ -259,7 +259,7 @@ TRACKING_SMOOTHING_FACTOR = 0.3    # Exponential moving average factor (0.0 to 1
 TRACKING_CONFIDENCE_THRESHOLD = 0.6
 MAX_LANDMARK_JUMP = 0.15           # Maximum allowed landmark delta per frame (normalized)
 
-# Camera -> arena movement mapping (combined axes, see core/game.py)
+# Deprecated relative/depth mapping constants, retained for compatibility.
 # lateral and depth deltas are measured from the resting pose at fight start:
 #   hp = DEPTH_NEUTRAL_HP + lateral_delta + depth_delta * DEPTH_MOVE_GAIN
 DEPTH_MOVE_GAIN = 1.0        # how strongly depth shifts the boxer
@@ -351,7 +351,7 @@ DEFAULT_SETTINGS = {
     "sfx_volume": 0.7,
     "camera_index": 0,
     "input_mode": "camera",          # "camera" | "keyboard"
-    "sensitivity": 1.0,              # multiplies horizontal tracking speed
+    "sensitivity": 1.0,              # camera follower response; never changes viewport mapping
     "smoothing": 0.55,               # deprecated; retained for saved-setting compatibility
     "punch_sensitivity": 1.0,        # confidence (2D) / depth thresholds (3D)
     "punch_line_reach": 0.75,        # calibrated arm fraction; independent of sensitivity
@@ -400,3 +400,7 @@ COLORS.update(
         "warm_glow": (233, 182, 111),
     }
 )
+
+# Camera hip-center lane: full arena travel before either hip leaves the frame.
+CAMERA_MOVEMENT_LEFT = 0.10
+CAMERA_MOVEMENT_RIGHT = 0.90

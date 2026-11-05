@@ -28,7 +28,7 @@ class MovementTests(unittest.TestCase):
 
     def test_stationary_jitter_never_walks_and_drifts_under_two_pixels(self):
         minimum = config.ARENA_MARGIN + config.FIGHTER_BODY_WIDTH / 2
-        origin = minimum + 0.35 * (1280 - 2 * minimum)
+        origin = minimum + 0.5 * (1280 - 2 * minimum)
         player = Player(origin)
         for i in range(300):
             position = self.controller.update(body(0.5 + 0.007 * math.sin(i * 1.7)), 1 / 30, False)
@@ -49,12 +49,12 @@ class MovementTests(unittest.TestCase):
                 break
         self.assertEqual(self.controller.state, "MOVING")
         self.assertLessEqual((i + 1) / 30, 0.2)
-        self.assertGreater(self.controller.position, 0.35)
+        self.assertGreater(self.controller.position, 0.5)
 
     def test_below_entry_boundary_holds_last_position(self):
         for _ in range(20):
             self.controller.update(body(0.516), 1 / 30, False)
-        self.assertEqual(self.controller.position, 0.35)
+        self.assertEqual(self.controller.position, 0.5)
 
     def test_stopping_rebases_dead_zone_around_new_hold(self):
         for _ in range(20):
@@ -68,18 +68,19 @@ class MovementTests(unittest.TestCase):
     def test_arm_and_shoulder_turns_do_not_move_hip_anchor(self):
         for i in range(60):
             self.controller.update(body(shoulder_offset=0.2 * math.sin(i)), 1 / 30, False)
-        self.assertEqual(self.controller.position, 0.35)
+        self.assertEqual(self.controller.position, 0.5)
 
-    def test_low_confidence_hips_freeze_and_reacquire_without_jump(self):
+    def test_low_confidence_hips_freeze_then_absolute_reacquire(self):
         for _ in range(20):
             self.controller.update(body(0.6), 1 / 30, False)
         held = self.controller.position
         self.controller.update(body(0.8, 0.2), 1 / 30, False)
         self.assertFalse(self.controller.valid)
+        self.assertEqual(self.controller.position, held)
         for _ in range(6):
             self.controller.update(body(0.72), 1 / 30, False)
         self.assertTrue(self.controller.valid)
-        self.assertEqual(self.controller.position, held)
+        self.assertAlmostEqual(self.controller.position, 0.775)
 
     def test_missing_hips_are_not_replaced_with_shoulders(self):
         self.controller.update(SimpleNamespace(present=True, lm=lambda i: None), 1 / 30, False)
@@ -90,13 +91,15 @@ class MovementTests(unittest.TestCase):
         self.assertFalse(self.controller.valid)
         for _ in range(12):
             self.controller.update(body(), 1 / 30, False)
-        self.assertEqual(self.controller.position, 0.35)
+        self.assertEqual(self.controller.position, 0.5)
 
-    def test_recenter_changes_anchor_without_changing_position(self):
+    def test_recenter_freezes_then_returns_to_absolute_alignment(self):
         self.controller.recenter(0.42)
+        self.assertEqual(self.controller.position, 0.42)
+        self.assertFalse(self.controller.valid)
         for _ in range(10):
             self.controller.update(body(0.7), 1 / 30, False)
-        self.assertEqual(self.controller.position, 0.42)
+        self.assertAlmostEqual(self.controller.position, 0.75)
 
     def test_mirror_reverses_movement_without_swapping_hips(self):
         other = MovementController()
@@ -105,7 +108,7 @@ class MovementTests(unittest.TestCase):
         for _ in range(20):
             other.update(body(0.55), 1 / 30, True)
             self.controller.update(body(0.55), 1 / 30, False)
-        self.assertAlmostEqual(other.position - 0.35, -(self.controller.position - 0.35))
+        self.assertAlmostEqual(other.position - 0.5, -(self.controller.position - 0.5))
 
     def test_physical_speed_acceleration_and_size_are_bounded(self):
         player = Player(400)
