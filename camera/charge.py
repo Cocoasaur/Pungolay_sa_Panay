@@ -27,6 +27,13 @@ class ChargeController:
         self.ready = False
         self.hint = "Pull one glove back beside your chest"
 
+    def resume_observation(self):
+        """Resume a paused fight without counting menu/diagnostic time."""
+        self.completed=False
+        for hand in self.hands.values():
+            hand['last_seen']=None
+            hand['paused']=hand['elapsed']>0
+
     @staticmethod
     def candidate(pose, side, calibration):
         indices = (

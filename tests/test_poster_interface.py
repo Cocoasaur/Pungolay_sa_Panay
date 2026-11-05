@@ -148,3 +148,19 @@ class PosterTests(unittest.TestCase):
                         bounds=canvas.get_bounding_rect(min_alpha=150)
                         self.assertLessEqual(abs(bounds.bottom-500),2,(name,state,t,facing,bounds))
                         if state=='idle':self.assertLessEqual(abs(bounds.height-240),5,(name,bounds))
+
+    def test_paused_debug_and_practice_cannot_advance_fight_charge(self):
+        self.game.settings['input_mode']='keyboard';self.game.start_new_game()
+        fight=self.game.states.current;fight.player.ability_ready=True
+        original=self.game.gestures;original.charge.hands['left']['elapsed']=2
+        original.charge.hands['left']['last_seen']=1
+        self.game.states.handle_event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_ESCAPE))
+        self.assertIsNot(self.game.gestures,original)
+        self.game.gestures.charge.hands['right']['elapsed']=5
+        self.assertEqual(original.charge.hands['left']['elapsed'],2)
+        self.game.states.handle_event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_ESCAPE))
+        self.assertIs(self.game.gestures,original)
+        self.assertEqual(original.charge.hands['left']['elapsed'],2)
+        self.assertIsNone(original.charge.hands['left']['last_seen'])
+        self.assertTrue(fight.player.ability_ready)
+        self.assertFalse(self.game.movement.valid)

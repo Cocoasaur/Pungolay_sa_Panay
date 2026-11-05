@@ -28,8 +28,29 @@ class PauseMenu(Scene):
         self._rects = []
         self.menu_overlay = None
         self._shade = None
+        self._fight_gestures = None
         self._plain = [cached_text(self.fonts["medium"], i, C["text"]) for i in PAUSE_ITEMS]
         self._hover = [cached_text(self.fonts["medium"], i, C["title_white"]) for i in PAUSE_ITEMS]
+
+    def enter(self):
+        # Practice/debug may keep reading the camera while a match is paused.
+        # Give those screens their own gesture state instead of charging the fight.
+        from camera.gesture_detector import GestureDetector
+        self._fight_gestures=self.game.gestures
+        self.game.gestures=GestureDetector(self.game.settings['punch_sensitivity'])
+        self.game.gestures.line_reach=self.game.settings.get('punch_line_reach',.75)
+
+    def exit(self):
+        if self._fight_gestures is None:return
+        self.game.gestures=self._fight_gestures
+        self._fight_gestures=None
+        self.game.gestures.charge.resume_observation()
+        self.game.gestures.set_punch_sensitivity(self.game.settings['punch_sensitivity'])
+        self.game.gestures.line_reach=self.game.settings.get('punch_line_reach',.75)
+        self.game._last_sample_time=None
+        self.game._last_sample_id=-1
+        self.game._pose_gone=True
+        self.game.movement.lose()
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN:
