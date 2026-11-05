@@ -55,6 +55,10 @@ class KeyboardInput:
             left_punch="j" in self._requests,
             right_punch="k" in self._requests,
             charge_completed=completed,
+            charge_side=(
+                ("left" if self._holds["j"] >= self._holds["k"] else "right") if charging else ""
+            ),
+            charge_hint="Hold J or K to charge; release, then tap to use",
             is_charging=charging,
             charge_progress=min(1.0, progress),
             guard=down(config.KEYS["guard"]),

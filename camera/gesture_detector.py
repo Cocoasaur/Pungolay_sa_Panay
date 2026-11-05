@@ -11,6 +11,7 @@ from collections import deque
 from typing import Any
 
 import config
+from camera.charge import ChargeController
 from camera.pose_tracker import (
     LM_LEFT_ELBOW,
     LM_LEFT_HIP,
@@ -67,6 +68,9 @@ class GestureDetector:
         self.punch_sensitivity = punch_sensitivity
         self.line_reach = config.PUNCH_LINE_REACH
         self.charge_completed = False
+        self.charge = ChargeController()
+        self.charge_side = ""
+        self.charge_hint = "Pull one glove back beside your chest"
 
     def set_punch_sensitivity(self, value: float) -> None:
         self.punch_sensitivity = max(0.5, min(3.0, value))
@@ -86,6 +90,18 @@ class GestureDetector:
         self.charge_progress = 0.0
         self.charge_completed = False
         self.left_hand.charge_now = self.right_hand.charge_now = False
+        self.charge_completed = self.charge.update(pose, dt, calibration, now)
+        self.charge_side = self.charge.side
+        self.charge_hint = self.charge.hint
+        self.is_charging = self.charge.active
+        self.is_charged = self.charge.ready
+        self.charge_progress = self.charge.progress
+        for ctx in (self.left_hand, self.right_hand):
+            hand = self.charge.hands[ctx.side]
+            if hand["elapsed"] > 0:
+                ctx.state = "CHARGED" if hand["completed"] else "CHARGING"
+                ctx.charge_time = hand["elapsed"]
+
         if not pose.present:
             self.left_hand = HandContext("left")
             self.right_hand = HandContext("right")
@@ -122,7 +138,7 @@ class GestureDetector:
 
             threshold = config.BLOCK_EXIT_THRESHOLD if self.guard else config.BLOCK_ENTER_THRESHOLD
 
-            if d_l < threshold and d_r < threshold:
+            if d_l < threshold and d_r < threshold and not self.charge.active:
                 guard_now = True
 
         if guard_now:
@@ -140,24 +156,6 @@ class GestureDetector:
         self.right_punch = self.right_hand.punch_now
         self.left_haymaker = self.left_hand.haymaker_now
         self.right_haymaker = self.right_hand.haymaker_now
-        self.charge_completed = self.left_hand.charge_now or self.right_hand.charge_now
-
-        # Charge UI logic
-        lh_state = self.left_hand.state
-        rh_state = self.right_hand.state
-        if lh_state in ("CHARGING", "CHARGED"):
-            self.is_charging = True
-            self.charge_progress = self.left_hand.charge_time / config.HAYMAKER_CHARGE_TIME
-            if lh_state == "CHARGED":
-                self.is_charged = True
-        elif rh_state in ("CHARGING", "CHARGED"):
-            self.is_charging = True
-            self.charge_progress = self.right_hand.charge_time / config.HAYMAKER_CHARGE_TIME
-            if rh_state == "CHARGED":
-                self.is_charged = True
-
-        self.charge_progress = min(1.0, max(0.0, self.charge_progress))
-
         # -- GET UP --
         hands_up = False
         if lw and rw and ls and rs:
@@ -248,34 +246,6 @@ class GestureDetector:
         else:
             ctx.punch_confirm_hold = 0.0
             ctx.pending_haymaker = False
-
-        # -- CHARGE DETECTION --
-        arm_bend = _distance2d(wrist, shoulder) / ref_len
-        is_tucked = arm_bend < config.CHARGE_MIN_BEND
-
-        x_offset = (wrist[0] - shoulder[0]) / ref_len
-        # If facing right, rear is -x. If facing left, rear is +x.
-        facing_dir = boundary.direction if boundary else 1.0
-
-        # relative offset: positive means forward, negative means backward
-        rel_x_offset = x_offset * facing_dir
-
-        thresh_enter = config.CHARGE_ENTER_THRESHOLD
-        thresh_exit = config.CHARGE_EXIT_THRESHOLD
-
-        if ctx.state == "NEUTRAL":
-            if is_tucked and rel_x_offset < thresh_enter:
-                ctx.state = "CHARGING"
-                ctx.charge_time = dt
-        elif ctx.state in ("CHARGING", "CHARGED"):
-            if not is_tucked or rel_x_offset > thresh_exit:
-                ctx.state = "NEUTRAL"
-                ctx.charge_time = 0.0
-            else:
-                ctx.charge_time += dt
-                if ctx.state == "CHARGING" and ctx.charge_time >= config.HAYMAKER_CHARGE_TIME:
-                    ctx.state = "CHARGED"
-                    ctx.charge_now = True
 
     def _is_punching(
         self, ctx: HandContext, wrist, elbow, shoulder, now: float, ref_len: float

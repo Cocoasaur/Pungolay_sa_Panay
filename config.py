@@ -25,7 +25,7 @@ HUD_DIR = os.path.join(ASSETS_DIR, "hud")
 HUD_IMAGE_PATH = os.path.join(HUD_DIR, "hud.png")
 MENU_DIR = os.path.join(ASSETS_DIR, "menu")
 MENU_IMAGE_PATH = os.path.join(MENU_DIR, "menu.png")
-MENU_BACKGROUND_PATH = os.path.join(MENU_DIR, "menu_background.png")
+MENU_BACKGROUND_PATH = os.path.join(MENU_DIR, "menu_background_clean.png")
 PAUSE_MENU_DIR = os.path.join(ASSETS_DIR, "pause_menu")
 PAUSE_MENU_IMAGE_PATH = os.path.join(PAUSE_MENU_DIR, "pause_menu.png")
 SCREENS_DIR = os.path.join(ASSETS_DIR, "screens")
@@ -352,15 +352,51 @@ DEFAULT_SETTINGS = {
     "camera_index": 0,
     "input_mode": "camera",          # "camera" | "keyboard"
     "sensitivity": 1.0,              # multiplies horizontal tracking speed
-    "smoothing": 0.55,               # 0..1 (higher = smoother)
+    "smoothing": 0.55,               # deprecated; retained for saved-setting compatibility
     "punch_sensitivity": 1.0,        # confidence (2D) / depth thresholds (3D)
     "punch_line_reach": 0.75,        # calibrated arm fraction; independent of sensitivity
     "distance_sensitivity": 1.0,
     "fullscreen": FULLSCREEN_DEFAULT,
     "debug_mode": False,
+    "camera_preview": True,
     "mirror_input": True,            # mirror horizontal camera movement
                                      # (player faces the camera)
     "calibration": None,             # dict from camera/calibration.py
     "last_slot": 1,
     "pose_backend": "auto",          # "auto" | "mediapipe" | "cv2"
 }
+
+# Body intent is independent from fast arm filtering.
+MOVEMENT_MIN_CONFIDENCE = 0.65
+MOVEMENT_ENTER_DISTANCE = 0.018
+MOVEMENT_ENTER_TIME = 0.080
+MOVEMENT_STOP_VELOCITY = 0.015
+MOVEMENT_STOP_TIME = 0.150
+MOVEMENT_REACQUIRE_TIME = 0.150
+MOVEMENT_MAX_SAMPLE_JUMP = 0.12
+MOVEMENT_ACCEL_TIME = 0.150
+WALK_ENTER_SPEED = 18.0
+WALK_EXIT_SPEED = 7.0
+WALK_STOP_TIME = 0.150
+FIGHTER_SEPARATION = 8.0
+KNOCKDOWN_FALL_TIME = 0.50
+GETUP_TIME = 0.52
+CHARGE_ENTRY_TIME = 0.10
+CHARGE_RELEASE_GRACE = 0.15
+CHARGE_LOST_GRACE = 0.30
+ANIMATION_CACHE_BYTES = 128 * 1024 * 1024
+
+COLORS.update(
+    {
+        "charcoal_dark": (23, 21, 18),
+        "panel": (31, 28, 24),
+        "title_white": (242, 231, 211),
+        "text": (226, 215, 196),
+        "text_dim": (177, 164, 143),
+        "text_faint": (139, 126, 107),
+        "border": (100, 85, 66),
+        "accent_red": (184, 58, 43),
+        "accent_red_bright": (210, 77, 56),
+        "warm_glow": (233, 182, 111),
+    }
+)
