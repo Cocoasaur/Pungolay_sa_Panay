@@ -96,6 +96,13 @@ the fighter. Both pose backends keep a fixed 240-pixel body height and foregroun
 
 ## Fight flow
 
+The fight HUD uses small translucent health cards in the upper corners, with
+stamina below your health. Haymaker instructions, charge progress, and stored
+readiness sit below the fighters. Only actionable tracking problems show a
+warning. The camera has one compact toolbar: **F4** hides/shows the preview and
+**R** reacquires movement. The tutorial shows one unfinished objective at a time.
+
+
 - Opponents can recover twice; their third knockdown is final. Raise both hands
   to recover your own boxer before the count expires.
 - Your opponent gets up once or twice (heavier fighters rise later), so pace
@@ -252,7 +259,8 @@ Artwork is included in Git. Downloaded models, fonts, generated sounds, local
 settings, calibration, and save slots remain ignored and are not imported
 from shared project archives.
 
-See [camera alignment validation](docs/camera-alignment-validation.md) and the
+See [compact fight HUD validation](docs/fight-hud-validation.md),
+[camera alignment validation](docs/camera-alignment-validation.md) and the
 [earlier animation/interface validation](docs/stable-update-validation.md) for measured
 responsiveness, automated checks, replay limitations, and hardware acceptance.
 

@@ -1,0 +1,125 @@
+{
+  "baseline": "44661147b48e3f7461619986caee4295e235ccf2",
+  "coverage": {
+    "before": {
+      "hud_only": {
+        "arena_untouched_percent": 80.39
+      },
+      "camera_visible": {
+        "arena_untouched_percent": 76.75
+      },
+      "tutorial": {
+        "arena_untouched_percent": 68.94
+      },
+      "tracking_warning": {
+        "arena_untouched_percent": 76.75
+      }
+    },
+    "after": {
+      "hud_only": {
+        "arena_untouched_percent": 93.26
+      },
+      "camera_visible": {
+        "arena_untouched_percent": 90.52
+      },
+      "tutorial": {
+        "arena_untouched_percent": 88.11
+      },
+      "tracking_warning": {
+        "arena_untouched_percent": 88.38
+      }
+    }
+  },
+  "software_draw": {
+    "before": {
+      "main": {
+        "median_ms": 1.1,
+        "max_ms": 4.51
+      },
+      "settings": {
+        "median_ms": 0.3,
+        "max_ms": 3.05
+      },
+      "pause": {
+        "median_ms": 0.4,
+        "max_ms": 3.25
+      },
+      "debug": {
+        "median_ms": 0.37,
+        "max_ms": 1.79
+      },
+      "calibration": {
+        "median_ms": 0.33,
+        "max_ms": 1.91
+      },
+      "fight_draw": {
+        "median_ms": 0.37,
+        "p95_ms": 0.83,
+        "max_ms": 1.0
+      },
+      "animation_cache_bytes": 50817136,
+      "prewarm_request_ms": 0.28,
+      "during_prewarm": {
+        "samples": 220,
+        "draw_max_ms": 1.53,
+        "settings_max_ms": 0.86,
+        "sampled_cache_peak_bytes": 28553600,
+        "all_frames_ready": true
+      },
+      "camera_preview_duplicate": {
+        "median_ms": 0.41,
+        "max_ms": 3.81
+      },
+      "camera_preview_fresh": {
+        "median_ms": 1.47,
+        "max_ms": 3.0
+      },
+      "limitations": "Headless software construction/drawing; excludes display flip, vsync, input-device latency and inference. Cached page transitions should remain below 100 ms."
+    },
+    "after": {
+      "main": {
+        "median_ms": 0.78,
+        "max_ms": 3.66
+      },
+      "settings": {
+        "median_ms": 0.24,
+        "max_ms": 3.07
+      },
+      "pause": {
+        "median_ms": 0.44,
+        "max_ms": 3.05
+      },
+      "debug": {
+        "median_ms": 0.25,
+        "max_ms": 1.04
+      },
+      "calibration": {
+        "median_ms": 0.27,
+        "max_ms": 1.82
+      },
+      "fight_draw": {
+        "median_ms": 0.38,
+        "p95_ms": 0.74,
+        "max_ms": 0.94
+      },
+      "animation_cache_bytes": 50817136,
+      "prewarm_request_ms": 0.32,
+      "during_prewarm": {
+        "samples": 214,
+        "draw_max_ms": 3.29,
+        "settings_max_ms": 1.01,
+        "sampled_cache_peak_bytes": 28553600,
+        "all_frames_ready": true
+      },
+      "camera_preview_duplicate": {
+        "median_ms": 0.42,
+        "max_ms": 3.94
+      },
+      "camera_preview_fresh": {
+        "median_ms": 1.39,
+        "max_ms": 3.59
+      },
+      "limitations": "Headless software construction/drawing; excludes display flip, vsync, input-device latency and inference. Cached page transitions should remain below 100 ms."
+    }
+  }
+}
