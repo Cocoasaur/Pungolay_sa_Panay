@@ -13,6 +13,7 @@ import config
 from core.state_manager import Scene
 from ui.fonts import render_spaced, cached_text
 from ui.assets import load_image
+from ui import theme
 
 C = config.COLORS
 
@@ -24,9 +25,9 @@ def _load_screen_overlay(screen_id: str) -> Optional[pygame.Surface]:
     )
 
 
-def _draw_screen_overlay(surface: pygame.Surface, overlay: Optional[pygame.Surface]) -> None:
-    if overlay is not None:
-        surface.blit(overlay, (0, 0))
+def _draw_screen_overlay(surface, overlay):
+    # Old screenshot-like artwork contained fake UI. Live poster controls replace it.
+    theme.background(surface)
 
 
 class _MenuMixin:
@@ -62,23 +63,13 @@ class _MenuMixin:
     def _draw_buttons(
         self, surface, labels: List[str], y0: int, center_x: int, disabled=()
     ) -> None:
-        f = self.game.fonts
         self._rects = []
-        y = y0
         for i, label in enumerate(labels):
-            hover = i == self.selected and i not in disabled
-            text = cached_text(
-                f["medium"],
-                label,
-                C["text_faint"] if i in disabled else C["title_white"] if hover else C["text"],
-            )
-            rect = pygame.Rect(center_x - 130, y - 14, 260, 46)
+            rect = pygame.Rect(center_x - 180, y0 - 14 + i * 56, 360, 46)
             self._rects.append(rect)
-            if hover:
-                pygame.draw.rect(surface, (52, 46, 40, 200), rect)
-                pygame.draw.rect(surface, C["accent_red"], (rect.x, rect.y, 4, 46))
-            surface.blit(text, text.get_rect(center=(center_x, y + 8)))
-            y += 56
+            theme.button(
+                surface, rect, label, self.selected == i, primary=i == 0, disabled=i in disabled
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +82,7 @@ class VictoryScreen(Scene, _MenuMixin):
         super().__init__(game)
         self.selected = 0
         self._rects = []
-        self._screen_overlay = _load_screen_overlay(self.name)
+        self._screen_overlay = None
         self.enemy_name = game.progression.opponent["name"] if enemy_name is None else enemy_name
         self.is_final = game.progression.is_final_fight if is_final is None else is_final
 
@@ -113,17 +104,15 @@ class VictoryScreen(Scene, _MenuMixin):
         self._nav(event, 1 if self.is_final else 2)
 
     def draw(self, surface: pygame.Surface) -> None:
-        surface.fill(C["charcoal_dark"])
+        theme.background(surface)
         _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
-        title = f["big"].render("YOU WIN", True, C["title_white"])
+        title = cached_text(f["big"], "YOU WIN", C["title_white"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 210)))
-        subtitle = f["medium"].render(
-            f"YOU DEFEATED {self.enemy_name.upper()}", True, C["text_dim"]
-        )
+        subtitle = cached_text(f["medium"], f"YOU DEFEATED {self.enemy_name.upper()}", C["text_dim"])
         surface.blit(subtitle, subtitle.get_rect(center=(config.BASE_WIDTH // 2, 290)))
         if self.is_final:
-            champion = f["medium"].render("PANAY CHAMPION", True, C["accent_red_bright"])
+            champion = cached_text(f["medium"], "PANAY CHAMPION", C["accent_red_bright"])
             surface.blit(champion, champion.get_rect(center=(config.BASE_WIDTH // 2, 330)))
         labels = ["MAIN MENU"] if self.is_final else ["NEXT FIGHT", "MAIN MENU"]
         self._draw_buttons(surface, labels, 400, config.BASE_WIDTH // 2)
@@ -138,7 +127,7 @@ class DefeatScreen(Scene, _MenuMixin):
         self.selected = 0
         self._rects = []
         self.enemy_name = ""
-        self._screen_overlay = _load_screen_overlay(self.name)
+        self._screen_overlay = None
 
     def enter(self) -> None:
         self.selected = 0
@@ -156,14 +145,12 @@ class DefeatScreen(Scene, _MenuMixin):
         self._nav(event, 2)
 
     def draw(self, surface: pygame.Surface) -> None:
-        surface.fill(C["charcoal_dark"])
+        theme.background(surface)
         _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
-        title = f["big"].render("YOU LOST", True, C["hp_red"])
+        title = cached_text(f["big"], "YOU LOST", C["hp_red"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 210)))
-        subtitle = f["medium"].render(
-            f"{self.enemy_name.upper()} WINS THE ROUND", True, C["text_dim"]
-        )
+        subtitle = cached_text(f["medium"], f"{self.enemy_name.upper()} WINS THE ROUND", C["text_dim"])
         surface.blit(subtitle, subtitle.get_rect(center=(config.BASE_WIDTH // 2, 290)))
         self._draw_buttons(surface, ["RETRY", "MAIN MENU"], 400, config.BASE_WIDTH // 2)
 
@@ -177,7 +164,7 @@ class CameraErrorScreen(Scene, _MenuMixin):
         self.message = message or "Camera unavailable. Retry or use keyboard controls."
         self.selected = 0
         self._rects = []
-        self._screen_overlay = _load_screen_overlay(self.name)
+        self._screen_overlay = None
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -198,12 +185,12 @@ class CameraErrorScreen(Scene, _MenuMixin):
             self.game.to_main_menu()
 
     def draw(self, surface):
-        surface.fill(C["charcoal_dark"])
+        theme.background(surface)
         _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
-        title = f["large"].render("CAMERA UNAVAILABLE", True, C["hp_red"])
+        title = cached_text(f["large"], "CAMERA UNAVAILABLE", C["hp_red"])
         surface.blit(title, title.get_rect(center=(640, 190)))
-        message = f["small"].render(self.message, True, C["text"])
+        message = cached_text(f["small"], self.message, C["text"])
         surface.blit(message, message.get_rect(center=(640, 270)))
         self._draw_buttons(surface, ["RETRY", "KEYBOARD MODE", "MAIN MENU"], 350, 640)
 
@@ -222,8 +209,15 @@ class CalibrationScreen(Scene, _MenuMixin):
         self._phase = "connecting"
         self._result_text = ""
         self._preview = None
-        self._practice = {"LEFT PUNCH": False, "RIGHT PUNCH": False, "BLOCK": False}
-        self._screen_overlay = _load_screen_overlay(self.name)
+        self._preview_key = None
+        self._practice = {
+            "LEFT PUNCH": False,
+            "RIGHT PUNCH": False,
+            "BLOCK": False,
+            "LEFT CHARGE": False,
+            "RIGHT CHARGE": False,
+        }
+        self._screen_overlay = None
 
     def enter(self):
         self.game._ensure_camera()
@@ -285,7 +279,18 @@ class CalibrationScreen(Scene, _MenuMixin):
         if status in ("CAMERA NOT DETECTED", "CAMERA LOST", "POSE UNAVAILABLE"):
             self._phase = "error"
             self.selected = min(self.selected, len(self._actions()) - 1)
-        if game.last_camera_frame is not None and pose is not None:
+        preview_key = (
+            game.tracking.sample_id,
+            game.raw_landmarks,
+            game.gestures.line_reach,
+            id(game.last_camera_frame),
+        )
+        if (
+            game.last_camera_frame is not None
+            and pose is not None
+            and preview_key != self._preview_key
+        ):
+            self._preview_key = preview_key
             frame = game.pose_tracker.draw_debug_frame(
                 game.last_camera_frame, pose, raw=game.raw_landmarks
             )
@@ -308,20 +313,22 @@ class CalibrationScreen(Scene, _MenuMixin):
             self._practice["LEFT PUNCH"] |= tracking.left_punch or tracking.left_haymaker
             self._practice["RIGHT PUNCH"] |= tracking.right_punch or tracking.right_haymaker
             self._practice["BLOCK"] |= tracking.guard
+            if tracking.charge_progress > 0 and tracking.charge_side:
+                self._practice[tracking.charge_side.upper() + " CHARGE"] = True
 
     def draw(self, surface):
-        surface.fill(C["charcoal_dark"])
+        theme.background(surface)
         f = self.game.fonts
-        surface.blit(f["large"].render("CAMERA SETUP", True, C["title_white"]), (60, 40))
+        surface.blit(cached_text(f["large"], "CAMERA SETUP", C["title_white"]), (60, 40))
         surface.blit(
-            f["small"].render("CONNECT  >  CALIBRATE  >  PRACTICE  >  START", True, C["text_dim"]),
+            cached_text(f["small"], "CONNECT  >  CALIBRATE  >  PRACTICE  >  START", C["text_dim"]),
             (60, 88),
         )
         pygame.draw.rect(surface, (28, 26, 24), (60, 125, 640, 360), border_radius=6)
         if self._preview is not None:
             surface.blit(self._preview, (60, 125))
         game = self.game
-        surface.blit(f["small"].render(game.camera.status, True, C["warn_yellow"]), (750, 135))
+        surface.blit(cached_text(f["small"], game.camera.status, C["warn_yellow"]), (750, 135))
         if self._phase == "collecting":
             steps = [
                 "",
@@ -338,7 +345,7 @@ class CalibrationScreen(Scene, _MenuMixin):
             lines = ["READY TO PRACTICE", self._result_text] + [
                 f"{'OK' if done else 'TRY'}: {name}" for name, done in self._practice.items()
             ]
-            progress = 1
+            progress = game.tracking.charge_progress if game.tracking.is_charging else 1
         elif self._phase == "error":
             lines = ["CAMERA NEEDS ATTENTION", "Retry or choose Keyboard Mode."]
             progress = 0
@@ -346,10 +353,11 @@ class CalibrationScreen(Scene, _MenuMixin):
             lines = ["CONNECTING / LOADING TRACKING", "You can cancel while it starts."]
             progress = 0
         for i, line in enumerate(lines):
-            surface.blit(f["small"].render(line, True, C["text"]), (750, 190 + i * 32))
+            surface.blit(cached_text(f["small"], line, C["text"]), (750, 180 + i * 28))
+        theme.text(surface, f, game.tracking.charge_hint, (750, 394), size="tiny")
         pygame.draw.rect(surface, C["border"], (750, 420, 420, 14))
         pygame.draw.rect(surface, C["warm_glow"], (750, 420, int(420 * progress), 14))
-        surface.blit(f["small"].render("LEFT: CYAN    RIGHT: ORANGE", True, C["text"]), (750, 460))
+        surface.blit(cached_text(f["small"], "LEFT: CYAN    RIGHT: ORANGE", C["text"]), (750, 460))
         actions = self._actions()
         disabled = []
         for i, action in enumerate(actions):
@@ -371,7 +379,7 @@ class LoadGameScreen(Scene, _MenuMixin):
         self.selected = 0
         self._rects = []
         self._slots: List[dict] = []
-        self._screen_overlay = _load_screen_overlay(self.name)
+        self._screen_overlay = None
 
     def enter(self) -> None:
         self.selected = 0
@@ -399,12 +407,12 @@ class LoadGameScreen(Scene, _MenuMixin):
             self.game.start_new_game(slot_number=slot["slot"])
 
     def draw(self, surface: pygame.Surface) -> None:
-        surface.fill(C["charcoal_dark"])
+        theme.background(surface)
         _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
-        title = f["large"].render("LOAD GAME", True, C["title_white"])
+        title = cached_text(f["large"], "LOAD GAME", C["title_white"])
         surface.blit(title, (60, 50))
-        hint = f["tiny"].render("EMPTY SLOTS START A NEW GAME", True, C["text_faint"])
+        hint = cached_text(f["tiny"], "EMPTY SLOTS START A NEW GAME", C["text_faint"])
         surface.blit(hint, (60, 92))
 
         self._rects = []
@@ -417,19 +425,13 @@ class LoadGameScreen(Scene, _MenuMixin):
                 pygame.draw.rect(surface, (52, 46, 40), rect)
                 pygame.draw.rect(surface, C["accent_red"], (rect.x, rect.y, 4, 64))
             pygame.draw.rect(surface, C["border"], rect, 1)
-            head = f["medium"].render(
-                f"SLOT {slot['slot']}", True, C["title_white"] if hover else C["text"]
-            )
+            head = cached_text(f["medium"], f"SLOT {slot['slot']}", C["title_white"] if hover else C["text"])
             surface.blit(head, (rect.x + 18, rect.y + 8))
             if slot["exists"]:
-                sub = f["small"].render(
-                    f"{slot['timestamp']}   -   {slot['opponent']} @ {slot['location']}"
-                    f"   -   {len(slot['defeated'])} WINS",
-                    True,
-                    C["text_dim"],
-                )
+                sub = cached_text(f["small"], f"{slot['timestamp']}   -   {slot['opponent']} @ {slot['location']}"
+                    f"   -   {len(slot['defeated'])} WINS", C["text_dim"])
             else:
-                sub = f["small"].render("EMPTY", True, C["text_faint"])
+                sub = cached_text(f["small"], "EMPTY", C["text_faint"])
             surface.blit(sub, (rect.x + 18, rect.y + 36))
             y += 76
 
@@ -439,7 +441,7 @@ class LoadGameScreen(Scene, _MenuMixin):
         if hover:
             pygame.draw.rect(surface, (52, 46, 40), back_rect)
             pygame.draw.rect(surface, C["accent_red"], (back_rect.x, back_rect.y, 4, 44))
-        back = f["medium"].render("BACK", True, C["title_white"] if hover else C["text"])
+        back = cached_text(f["medium"], "BACK", C["title_white"] if hover else C["text"])
         surface.blit(back, (back_rect.x + 18, back_rect.y + 10))
 
 
@@ -451,7 +453,7 @@ class LevelSelectScreen(Scene, _MenuMixin):
         super().__init__(game)
         self.selected = 0
         self._rects = []
-        self._screen_overlay = _load_screen_overlay(self.name)
+        self._screen_overlay = None
 
     def enter(self) -> None:
         self.selected = 0
@@ -471,10 +473,10 @@ class LevelSelectScreen(Scene, _MenuMixin):
         self.game.fight_opponent(unlocked[self.selected])
 
     def draw(self, surface: pygame.Surface) -> None:
-        surface.fill(C["charcoal_dark"])
+        theme.background(surface)
         _draw_screen_overlay(surface, self._screen_overlay)
         f = self.game.fonts
-        title = f["large"].render("LEVEL SELECT", True, C["title_white"])
+        title = cached_text(f["large"], "LEVEL SELECT", C["title_white"])
         surface.blit(title, (60, 50))
 
         self._rects = []
@@ -490,15 +492,9 @@ class LevelSelectScreen(Scene, _MenuMixin):
                 pygame.draw.rect(surface, (52, 46, 40), rect)
                 pygame.draw.rect(surface, C["accent_red"], (rect.x, rect.y, 4, 58))
             pygame.draw.rect(surface, C["border"], rect, 1)
-            name = f["medium"].render(
-                f"{enemy['name'].upper()}", True, C["title_white"] if hover else C["text"]
-            )
+            name = cached_text(f["medium"], f"{enemy['name'].upper()}", C["title_white"] if hover else C["text"])
             surface.blit(name, (rect.x + 18, rect.y + 8))
-            sub = f["small"].render(
-                f"{enemy.get('title','').upper()}  -  {location['name'].upper()}",
-                True,
-                C["text_dim"],
-            )
+            sub = cached_text(f["small"], f"{enemy.get('title','').upper()}  -  {location['name'].upper()}", C["text_dim"])
             surface.blit(sub, (rect.x + 18, rect.y + 34))
             y += 68
 
@@ -507,9 +503,7 @@ class LevelSelectScreen(Scene, _MenuMixin):
         if self.selected == len(unlocked):
             pygame.draw.rect(surface, (52, 46, 40), back_rect)
             pygame.draw.rect(surface, C["accent_red"], (back_rect.x, back_rect.y, 4, 44))
-        back = f["medium"].render(
-            "BACK", True, C["title_white"] if self.selected == len(unlocked) else C["text"]
-        )
+        back = cached_text(f["medium"], "BACK", C["title_white"] if self.selected == len(unlocked) else C["text"])
         surface.blit(back, (back_rect.x + 18, back_rect.y + 10))
 
 
@@ -523,10 +517,11 @@ class CameraDebugView(Scene):
         self.return_scene = return_scene or game.states.current
         self.fonts = game.fonts
         self._preview = None
+        self._preview_key = None
         self.back_rect = pygame.Rect(880, 640, 300, 44)
         self.retry_rect = pygame.Rect(880, 530, 300, 42)
         self.keyboard_rect = pygame.Rect(880, 582, 300, 42)
-        self._screen_overlay = _load_screen_overlay(self.name)
+        self._screen_overlay = None
 
     def enter(self):
         self.game._ensure_camera()
@@ -568,7 +563,18 @@ class CameraDebugView(Scene):
     def update(self, dt):
         game = self.game
         tracking, pose = game.poll_camera_for_calibration()
-        if game.last_camera_frame is not None and pose is not None:
+        preview_key = (
+            game.tracking.sample_id,
+            game.raw_landmarks,
+            game.gestures.line_reach,
+            id(game.last_camera_frame),
+        )
+        if (
+            game.last_camera_frame is not None
+            and pose is not None
+            and preview_key != self._preview_key
+        ):
+            self._preview_key = preview_key
             frame = game.pose_tracker.draw_debug_frame(
                 game.last_camera_frame, pose, raw=game.raw_landmarks
             )
@@ -584,8 +590,8 @@ class CameraDebugView(Scene):
         f = self.fonts
         camera = game.camera
         pose = game.last_pose
-        surface.fill(C["charcoal_dark"])
-        surface.blit(f["large"].render("CAMERA DEBUG", True, C["title_white"]), (40, 20))
+        theme.background(surface)
+        surface.blit(cached_text(f["large"], "CAMERA DEBUG", C["title_white"]), (40, 20))
         if self._preview is not None:
             surface.blit(self._preview, (40, 80))
         else:
@@ -602,6 +608,7 @@ class CameraDebugView(Scene):
             ),
             ("Dropped", str(camera.dropped_frames)),
             ("Landmarks", "RAW" if game.raw_landmarks else "FILTERED"),
+            ("Movement", game.tracking.movement_status),
         ]
         for side, idx in (("Left", 15), ("Right", 16)):
             point = pose.lm(idx) if pose else None
@@ -613,8 +620,8 @@ class CameraDebugView(Scene):
                 ]
             )
         for i, (label, value) in enumerate(rows):
-            surface.blit(f["small"].render(label + ":", True, C["text_dim"]), (880, 90 + i * 30))
-            surface.blit(f["small"].render(value, True, C["text"]), (1010, 90 + i * 30))
+            surface.blit(cached_text(f["small"], label + ":", C["text_dim"]), (880, 90 + i * 30))
+            surface.blit(cached_text(f["small"], value, C["text"]), (1010, 90 + i * 30))
         for i, text in enumerate(
             (
                 "LEFT: CYAN    RIGHT: ORANGE",
@@ -622,16 +629,16 @@ class CameraDebugView(Scene):
                 "Yellow line: extend past it, then retract.",
             )
         ):
-            surface.blit(f["small"].render(text, True, C["text"]), (40, 560 + i * 28))
+            surface.blit(cached_text(f["small"], text, C["text"]), (40, 560 + i * 28))
         for rect, label in (
             (self.retry_rect, "RETRY / T"),
             (self.keyboard_rect, "KEYBOARD MODE / K"),
         ):
             pygame.draw.rect(surface, C["border"], rect, border_radius=5)
-            text = f["small"].render(label, True, C["title_white"])
+            text = cached_text(f["small"], label, C["title_white"])
             surface.blit(text, text.get_rect(center=rect.center))
         pygame.draw.rect(surface, C["border"], self.back_rect, border_radius=5)
-        text = f["medium"].render("BACK / ESC", True, C["title_white"])
+        text = cached_text(f["medium"], "BACK / ESC", C["title_white"])
         surface.blit(text, text.get_rect(center=self.back_rect.center))
 
     def exit(self):

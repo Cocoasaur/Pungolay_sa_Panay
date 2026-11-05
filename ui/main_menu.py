@@ -1,101 +1,70 @@
-"""The main menu: the game's visual identity.
-
-Layout follows the reference: dark charcoal frame, industrial gym backdrop,
-"PUNGOLAY SA" over a much larger "PANAY", a menu panel on the left, the two
-boxers on the right, VERSION in the upper-right corner. Supports mouse hover/
-click and keyboard navigation (arrows + Enter, Escape quits).
-"""
-
-from __future__ import annotations
-
-import os
+"""Boxing-poster menu with contained live typography and animated athletes."""
 
 import pygame
-
 import config
-from ui.assets import load_image
 from core.state_manager import Scene
-from ui.fonts import render_spaced
+from ui.backgrounds import build_menu_background
+from ui.fonts import cached_text, render_spaced
 from ui.sprites import draw_boxer
-
-C = config.COLORS
+from ui import theme
 
 
 class MainMenu(Scene):
     name = "main_menu"
 
-    def __init__(self, game) -> None:
+    def __init__(self, game):
         super().__init__(game)
         self.fonts = game.fonts
         self.selected = 0
-        self.anim_t = 0.0
-        self.background = None
-        self.title_surf = None
-        self.subtitle_surf = None
-        self.version_surf = None
-        self.menu_overlay = None
+        self.anim_t = 0
         self.items = list(config.MENU_ITEMS)
-        self._item_rects = []
-        self._build_static()
-
-    # ------------------------------------------------------------------
-    def _build_static(self) -> None:
-        from ui.backgrounds import build_menu_background
+        self._item_rects = [pygame.Rect(96, 340 + i * 64, 416, 52) for i in range(len(self.items))]
+        self.panel_rect = pygame.Rect(64, 64, 480, 592)
+        self.title_bounds = pygame.Rect(96, 96, 416, 184)
         self.background = build_menu_background()
-        if (not os.path.isfile(config.MENU_BACKGROUND_PATH)
-                and os.path.isfile(config.MENU_IMAGE_PATH)):
-            image = load_image(config.MENU_IMAGE_PATH, (config.BASE_WIDTH, config.BASE_HEIGHT))
-            if image is not None and image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
-                image = pygame.transform.smoothscale(
-                    image, (config.BASE_WIDTH, config.BASE_HEIGHT))
-            self.menu_overlay = image
-        f = self.fonts
+        self.menu_overlay = None
+        self.title_surf = render_spaced(
+            "PUNGOLAY SA",
+            theme.fitted("PUNGOLAY SA", 416, 25, True, 3),
+            config.COLORS["title_white"],
+            3,
+        )
+        self.subtitle_surf = render_spaced(
+            "PANAY", theme.fitted("PANAY", 416, 104, True, 6), config.COLORS["title_white"], 6
+        )
+        self._shade = pygame.Surface((1280, 720), pygame.SRCALPHA)
+        self._shade.fill((9, 8, 6, 48))
 
-        # title: "PUNGOLAY SA" small, "PANAY" huge below it
-        self.title_surf = render_spaced("PUNGOLAY SA", f["medium"],
-                                        C["title_gray"], spacing=8)
-        self.subtitle_surf = render_spaced("PANAY", f["huge"],
-                                           C["title_white"], spacing=14)
-        self.version_surf = f["tiny"].render(f"VERSION {config.VERSION}",
-                                             True, C["text_faint"])
-        self.tagline_surf = f["tiny"].render(
-            "WEB-CAM BOXING  -  WESTERN VISAYAS", True, C["text_faint"])
-
-        # pre-render menu item labels in both states
-        self._item_plain = [f["medium"].render(item, True, C["text"])
-                            for item in self.items]
-        self._item_hover = [f["medium"].render(item, True, C["title_white"])
-                            for item in self.items]
-
-    def enter(self) -> None:
+    def enter(self):
         self.selected = 0
+        from ui.animation import prewarm_pair
 
-    # ------------------------------------------------------------------
-    def handle_event(self, event: pygame.event.Event) -> None:
+        prewarm_pair(("player", -1), ("jessie", 1))
+
+    def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
-            key = pygame.key.name(event.key)
-            if key in ("up", "w"):
+            if event.key in (pygame.K_UP, pygame.K_w):
                 self.selected = (self.selected - 1) % len(self.items)
                 self.game.audio.play("menu_move")
-            elif key in ("down", "s"):
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
                 self.selected = (self.selected + 1) % len(self.items)
                 self.game.audio.play("menu_move")
-            elif key in ("return", "kp_enter", "space"):
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
                 self._activate(self.selected)
-            elif key == "escape":
+            elif event.key == pygame.K_ESCAPE:
                 self.game.quit()
         elif event.type == pygame.MOUSEMOTION:
             for i, rect in enumerate(self._item_rects):
-                if rect.collidepoint(event.pos):
-                    if i != self.selected:
-                        self.selected = i
-                        self.game.audio.play("menu_move")
+                if rect.collidepoint(event.pos) and i != self.selected:
+                    self.selected = i
+                    self.game.audio.play("menu_move")
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for i, rect in enumerate(self._item_rects):
                 if rect.collidepoint(event.pos):
                     self._activate(i)
+                    break
 
-    def _activate(self, index: int) -> None:
+    def _activate(self, index):
         self.game.audio.play("menu_select")
         item = self.items[index]
         if item == "NEW GAME":
@@ -107,77 +76,43 @@ class MainMenu(Scene):
         elif item == "QUIT":
             self.game.quit()
 
-    # ------------------------------------------------------------------
-    def update(self, dt: float) -> None:
+    def update(self, dt):
         self.anim_t += dt
 
-    def draw(self, surface: pygame.Surface) -> None:
+    def draw(self, surface):
         surface.blit(self.background, (0, 0))
-        if self.menu_overlay is not None:
-            surface.blit(self.menu_overlay, (0, 0))
-
-        # ---- title block (left) ---------------------------------------
-        surface.blit(self.title_surf, (128, 110))
-        surface.blit(self.subtitle_surf, (120, 138))
-        # accent line under the title
-        pygame.draw.rect(surface, C["accent_red"], (128, 330, 120, 4))
-        surface.blit(self.tagline_surf, (128, 344))
-
-        # ---- version (upper right) ------------------------------------
-        surface.blit(self.version_surf,
-                     (config.BASE_WIDTH - 22 - self.version_surf.get_width(), 26))
-
-        # ---- menu panel (left) ----------------------------------------
-        panel_x, panel_y, panel_w = 128, 400, 330
-        panel = pygame.Surface((panel_w, 250), pygame.SRCALPHA)
-        panel.fill(C["panel"])
-        surface.blit(panel, (panel_x, panel_y))
-        pygame.draw.rect(surface, C["border"], (panel_x, panel_y, panel_w, 250), 1)
-
-        self._item_rects = []
-        y = panel_y + 34
-        for i, item in enumerate(self.items):
-            hover = i == self.selected
-            rect = pygame.Rect(panel_x + 22, y - 12, panel_w - 44, 44)
-            self._item_rects.append(rect)
-            if hover:
-                pygame.draw.rect(surface, (52, 46, 40, 160), rect)
-                pygame.draw.rect(surface, C["accent_red"], (rect.x - 22, rect.y, 4, 44))
-                surf = self._item_hover[i]
-            else:
-                surf = self._item_plain[i]
-            surface.blit(surf, (rect.x + 10, y))
-            y += 50
-
-        # ---- boxers (right side) --------------------------------------
-        self._draw_boxers(surface)
-
-        # ---- controls hint (bottom) ------------------------------------
-        hint = self.fonts["tiny"].render(
-            "ARROWS / ENTER  -  MOUSE", True, C["text_faint"])
-        surface.blit(hint, (22, config.BASE_HEIGHT - 34))
-
-    # ------------------------------------------------------------------
-    def _draw_boxers(self, surface: pygame.Surface) -> None:
-        """Player and enemy placeholder boxers facing each other."""
-        enemy_x = config.BASE_WIDTH - 300
-        player_x = config.BASE_WIDTH - 130
-        foot_y = 690
-        t = self.anim_t
-
-        # subtle warm glow behind the fighters
-        glow = pygame.Surface((380, 220), pygame.SRCALPHA)
-        for r in range(190, 0, -8):
-            alpha = int(6 * (1 - r / 190))
-            pygame.draw.ellipse(glow, C["warm_glow"] + (alpha,),
-                                (190 - r, 110 - r * 0.6, r * 2, r * 1.2))
-        surface.blit(glow, (enemy_x - 230, foot_y - 250))
-
-        # enemy faces the player (facing right), player faces the enemy
-        draw_boxer(surface, enemy_x, foot_y, facing=1, state="idle",
-                   anim_t=t + 1.3, scale=1.05,
-                   trunks_color=config.ENEMIES["jessie"].get("trunks"),
-                   fighter_id="jessie")
-        draw_boxer(surface, player_x, foot_y, facing=-1, state="idle",
-                   anim_t=t, scale=1.05, trunks_color=C["trunks_player"],
-                   fighter_id="player")
+        surface.blit(self._shade, (0, 0))
+        theme.panel(surface, self.panel_rect, True)
+        surface.blit(self.title_surf, (96, 100))
+        surface.blit(self.subtitle_surf, (96, 142))
+        pygame.draw.rect(surface, config.COLORS["accent_red"], (96, 262, 96, 5))
+        theme.text(surface, self.fonts, "WEB-CAM BOXING / WESTERN VISAYAS", (96, 286))
+        for i, (item, rect) in enumerate(zip(self.items, self._item_rects)):
+            theme.button(surface, rect, item, self.selected == i, primary=i == 0)
+        theme.text(surface, self.fonts, "ARROWS + ENTER  /  MOUSE", (96, 620), size="tiny")
+        version = cached_text(
+            self.fonts["tiny"], "VERSION " + config.VERSION, config.COLORS["title_white"]
+        )
+        surface.blit(version, (1248 - version.get_width(), 28))
+        draw_boxer(
+            surface,
+            820,
+            config.GROUND_Y,
+            1,
+            "idle",
+            self.anim_t + 1.1,
+            1,
+            config.COLORS["trunks_enemy"],
+            fighter_id="jessie",
+        )
+        draw_boxer(
+            surface,
+            1080,
+            config.GROUND_Y,
+            -1,
+            "idle",
+            self.anim_t,
+            1,
+            config.COLORS["trunks_player"],
+            fighter_id="player",
+        )

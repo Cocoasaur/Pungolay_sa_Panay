@@ -6,6 +6,7 @@ import pygame
 import config
 from core.state_manager import Scene
 from ui.assets import load_image
+from ui import theme
 from ui.fonts import cached_text
 from camera.camera_manager import probe_cameras  # compatibility; never called by the UI
 
@@ -26,7 +27,7 @@ class SettingsScene(Scene):
         self._rows = []
         self._drag_row = None
         self._mouse_pos = (-1, -1)
-        self.overlay = load_image(config.SCREENS_DIR + "/settings.png", (1280, 720))
+        self.overlay = None
         self.cameras = list(game.camera.devices)
         self.back_rect = pygame.Rect(60, 650, 180, 44)
         self.retry_rect = pygame.Rect(760, 600, 180, 42)
@@ -42,16 +43,7 @@ class SettingsScene(Scene):
             self._rows = [
                 row("input_mode", "INPUT MODE", "list", options=["camera", "keyboard"]),
                 row("sensitivity", "MOVEMENT SENSITIVITY", "range", min=0.5, max=2.0, step=0.1),
-                row("smoothing", "MOVEMENT SMOOTHING", "range", min=0, max=1, step=0.05),
                 row("punch_sensitivity", "PUNCH SENSITIVITY", "range", min=0.5, max=3.0, step=0.1),
-                row(
-                    "distance_sensitivity",
-                    "DISTANCE SENSITIVITY",
-                    "range",
-                    min=0.5,
-                    max=2.0,
-                    step=0.1,
-                ),
             ]
         elif self.tab == 1:
             self._rows = [
@@ -71,6 +63,7 @@ class SettingsScene(Scene):
                 row("sfx_volume", "SFX VOLUME", "range", min=0, max=1, step=0.05),
                 row("fullscreen", "FULLSCREEN", "bool"),
                 row("debug_mode", "DEBUG OVERLAY", "bool"),
+                row("camera_preview", "GAMEPLAY CAMERA PREVIEW", "bool"),
             ]
         self._rects = [pygame.Rect(60, 185 + i * 58, 650, 48) for i in range(len(self._rows))]
         self.selected = min(self.selected, len(self._rows))
@@ -216,14 +209,10 @@ class SettingsScene(Scene):
 
     def draw(self, surface):
         f = self.fonts
-        surface.fill(C["charcoal_dark"])
-        if self.overlay is not None:
-            surface.blit(self.overlay, (0, 0))
-        surface.blit(f["large"].render("SETTINGS", True, C["title_white"]), (60, 40))
+        theme.background(surface)
+        surface.blit(cached_text(f["large"], "SETTINGS", C["title_white"]), (60, 40))
         surface.blit(
-            f["small"].render(
-                "TAB: PAGE   ARROWS: SELECT / CHANGE   ESC: BACK", True, C["text_dim"]
-            ),
+            cached_text(f["small"], "TAB: PAGE   ARROWS: SELECT / CHANGE   ESC: BACK", C["text_dim"]),
             (60, 88),
         )
         for i, rect in enumerate(self.tab_rects):
@@ -258,7 +247,7 @@ class SettingsScene(Scene):
                     pygame.draw.circle(surface, C["warm_glow"], (x, slider.centery), 6)
                 else:
                     value = f"< {str(val).upper()} >"
-            text = f["small"].render(value, True, C["warn_yellow"])
+            text = cached_text(f["small"], value, C["warn_yellow"])
             surface.blit(text, text.get_rect(midright=(rect.right - 12, rect.centery)))
         pygame.draw.rect(
             surface,
@@ -266,7 +255,7 @@ class SettingsScene(Scene):
             self.back_rect,
             border_radius=5,
         )
-        text = f["medium"].render("BACK", True, C["title_white"])
+        text = cached_text(f["medium"], "BACK", C["title_white"])
         surface.blit(text, text.get_rect(center=self.back_rect.center))
         if self.tab == 1:
             game = self.game
@@ -287,7 +276,7 @@ class SettingsScene(Scene):
                 pygame.draw.rect(surface, C["border"], rect, border_radius=4)
                 if rect.collidepoint(self._mouse_pos):
                     pygame.draw.rect(surface, C["warm_glow"], rect, 1, border_radius=4)
-                text = f["small"].render(label, True, C["text"])
+                text = cached_text(f["small"], label, C["text"])
                 surface.blit(text, text.get_rect(center=rect.center))
             labels = [
                 game.camera.status,
@@ -296,7 +285,7 @@ class SettingsScene(Scene):
                 "Sensitivity changes confidence, not distance.",
             ]
             for i, label in enumerate(labels):
-                surface.blit(f["small"].render(label, True, C["text"]), (760, 470 + i * 27))
+                surface.blit(cached_text(f["small"], label, C["text"]), (760, 470 + i * 27))
         elif self.tab == 0:
             for i, label in enumerate(
                 (
@@ -305,7 +294,8 @@ class SettingsScene(Scene):
                     "CHARGE: hold J or K for 5 seconds",
                     "READY: your next punch uses the ability",
                     "BLOCK / GET UP: SPACE",
-                    "Camera: use your anatomical left/right arm",
+                    "LATERAL MOVEMENT / FIXED FIGHTER SIZE",
+                    "R: recenter body  /  F4: camera preview",
                 )
             ):
-                surface.blit(f["small"].render(label, True, C["text"]), (760, 210 + i * 36))
+                surface.blit(cached_text(f["small"], label, C["text"]), (760, 210 + i * 36))

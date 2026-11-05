@@ -24,9 +24,13 @@ from ui.sprites import _load_sprite, _scaled_sprite, _sprite_path, draw_boxer
 
 class ArtAssetTests(unittest.TestCase):
     def setUp(self):
-        drivers = patch.dict(os.environ, {
-            "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy",
-        })
+        drivers = patch.dict(
+            os.environ,
+            {
+                "SDL_VIDEODRIVER": "dummy",
+                "SDL_AUDIODRIVER": "dummy",
+            },
+        )
         drivers.start()
         self.addCleanup(drivers.stop)
         pygame.display.init()
@@ -54,8 +58,9 @@ class ArtAssetTests(unittest.TestCase):
             with self.subTest(location=location):
                 # Source PNGs can have any size; the rendered arena is 1280 x 720.
                 pygame.image.load(str(Path(config.LEVELS_DIR) / f"{location}.png"))
-                self.assertEqual(levels.background(location).get_size(),
-                                 (config.BASE_WIDTH, config.BASE_HEIGHT))
+                self.assertEqual(
+                    levels.background(location).get_size(), (config.BASE_WIDTH, config.BASE_HEIGHT)
+                )
         for fighter in ["player", *config.OPPONENT_ORDER]:
             with self.subTest(fighter=fighter):
                 path = _sprite_path(fighter, "idle")
@@ -78,8 +83,7 @@ class ArtAssetTests(unittest.TestCase):
             self.assertIsNone(_sprite_path("jessie", "attack"))
             surface = pygame.Surface((400, 300))
             for state in ("idle", "punch_l", "punch_r", "guard", "hit", "knockdown", "ko"):
-                draw_boxer(surface, 200, 200, 1, state, 0, 1, (80, 30, 30),
-                           fighter_id="jessie")
+                draw_boxer(surface, 200, 200, 1, state, 0, 1, (80, 30, 30), fighter_id="jessie")
 
     def test_fighter_mirroring_and_flash_keep_transparent_pixels_clear(self):
         image = pygame.Surface((4, 4), pygame.SRCALPHA)
@@ -124,7 +128,8 @@ class ArtAssetTests(unittest.TestCase):
         background = pygame.Surface((config.BASE_WIDTH, config.BASE_HEIGHT))
         background.fill((20, 40, 60))
         with patch.object(config, "LEVELS_DIR", str(self.temp)), patch(
-                "levels.level_manager.build_arena_background", return_value=background) as build:
+            "levels.level_manager.build_arena_background", return_value=background
+        ) as build:
             levels = LevelManager(Progression())
             loaded = levels.background("black22")
             self.assertEqual(loaded.get_at((0, 0))[:3], (220, 40, 30))
@@ -134,7 +139,8 @@ class ArtAssetTests(unittest.TestCase):
 
     def test_missing_arena_and_menu_art_use_procedural_backgrounds(self):
         with patch.object(config, "LEVELS_DIR", str(self.temp)), patch.object(
-                config, "MENU_BACKGROUND_PATH", str(self.temp / "missing.png")):
+            config, "MENU_BACKGROUND_PATH", str(self.temp / "missing.png")
+        ):
             levels = LevelManager(Progression())
             expected = (config.BASE_WIDTH, config.BASE_HEIGHT)
             self.assertEqual(levels.background().get_size(), expected)
@@ -144,7 +150,8 @@ class ArtAssetTests(unittest.TestCase):
         custom = self.image("background.png", "red")
         overlay = self.image("menu.png", "blue")
         with patch.object(config, "MENU_BACKGROUND_PATH", custom), patch.object(
-                config, "MENU_IMAGE_PATH", overlay):
+            config, "MENU_IMAGE_PATH", overlay
+        ):
             game = SimpleNamespace(fonts=load_fonts())
             menu = MainMenu(game)
             self.assertEqual(menu.background.get_size(), (config.BASE_WIDTH, config.BASE_HEIGHT))
@@ -152,7 +159,8 @@ class ArtAssetTests(unittest.TestCase):
             self.assertIsNone(menu.menu_overlay)
             Path(custom).unlink()
             fallback = MainMenu(game)
-            self.assertIsNotNone(fallback.menu_overlay)
+            self.assertIsNone(fallback.menu_overlay)
+            self.assertIsNotNone(fallback.background)
 
     def test_optional_screen_overlay_resizes_and_preserves_alpha(self):
         with patch.object(config, "SCREENS_DIR", str(self.temp)):

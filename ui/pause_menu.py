@@ -1,6 +1,7 @@
 """Pause menu: an overlay pushed on top of the gameplay scene."""
 
 from __future__ import annotations
+from ui.fonts import cached_text
 
 import os
 
@@ -8,12 +9,12 @@ import pygame
 
 import config
 from ui.assets import load_image
+from ui import theme
 from core.state_manager import Scene
 
 C = config.COLORS
 
-PAUSE_ITEMS = ["RESUME", "RETRY FIGHT", "LEVEL SELECT", "SETTINGS",
-               "MAIN MENU", "QUIT"]
+PAUSE_ITEMS = ["RESUME", "RETRY FIGHT", "LEVEL SELECT", "SETTINGS", "MAIN MENU", "QUIT"]
 
 
 class PauseMenu(Scene):
@@ -26,16 +27,9 @@ class PauseMenu(Scene):
         self.selected = 0
         self._rects = []
         self.menu_overlay = None
-        if os.path.isfile(config.PAUSE_MENU_IMAGE_PATH):
-            image = load_image(config.PAUSE_MENU_IMAGE_PATH, (config.BASE_WIDTH, config.BASE_HEIGHT))
-            if image is not None and image.get_size() != (config.BASE_WIDTH, config.BASE_HEIGHT):
-                image = pygame.transform.smoothscale(
-                    image, (config.BASE_WIDTH, config.BASE_HEIGHT))
-            self.menu_overlay = image
-        self._plain = [self.fonts["medium"].render(i, True, C["text"])
-                       for i in PAUSE_ITEMS]
-        self._hover = [self.fonts["medium"].render(i, True, C["title_white"])
-                       for i in PAUSE_ITEMS]
+        self._shade = None
+        self._plain = [cached_text(self.fonts["medium"], i, C["text"]) for i in PAUSE_ITEMS]
+        self._hover = [cached_text(self.fonts["medium"], i, C["title_white"]) for i in PAUSE_ITEMS]
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN:
@@ -80,13 +74,15 @@ class PauseMenu(Scene):
 
     def draw(self, surface: pygame.Surface) -> None:
         # dim the arena underneath
-        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 170))
+        overlay = self._shade
+        if overlay is None or overlay.get_size() != surface.get_size():
+            overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 170))
+            self._shade = overlay
         surface.blit(overlay, (0, 0))
-        if self.menu_overlay is not None:
-            surface.blit(self.menu_overlay, (0, 0))
+        theme.panel(surface, pygame.Rect(400, 100, 480, 550), True)
 
-        title = self.fonts["big"].render("PAUSED", True, C["title_white"])
+        title = cached_text(self.fonts["big"], "PAUSED", C["title_white"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 150)))
 
         self._rects = []
@@ -94,14 +90,8 @@ class PauseMenu(Scene):
         for i, item in enumerate(PAUSE_ITEMS):
             rect = pygame.Rect(config.BASE_WIDTH // 2 - 130, y - 12, 260, 44)
             self._rects.append(rect)
-            if i == self.selected:
-                pygame.draw.rect(surface, (52, 46, 40, 200), rect)
-                pygame.draw.rect(surface, C["accent_red"], (rect.x, rect.y, 4, 44))
-                surf = self._hover[i]
-            else:
-                surf = self._plain[i]
-            surface.blit(surf, surf.get_rect(center=(config.BASE_WIDTH // 2, y + 10)))
+            theme.button(surface, rect, item, i == self.selected, primary=i == 0)
             y += 52
 
-        hint = self.fonts["tiny"].render("ESC TO RESUME", True, C["text_faint"])
+        hint = cached_text(self.fonts["tiny"], "ESC TO RESUME", C["text_faint"])
         surface.blit(hint, hint.get_rect(center=(config.BASE_WIDTH // 2, 620)))
