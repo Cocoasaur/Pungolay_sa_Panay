@@ -83,7 +83,7 @@ game still runs — in keyboard mode.
 
 Controls and input mode are configurable in **SETTINGS** (also reachable through
 Escape → Settings during a fight). Press **F3** for a live debug overlay and **F11** for
-fullscreen. If camera movement ever feels reversed, toggle **MIRROR INPUT** in
+fullscreen. If camera movement ever feels reversed, toggle **MIRROR MOVEMENT** in
 SETTINGS.
 
 With the OpenCV camera backend, the preview shows a yellow **PUNCH** line in
@@ -149,13 +149,33 @@ charge, and samples over 250 ms old produce no gesture events. Confident moving
 arms use approximately 12 ms smoothing; nearly still arms use 45 ms. Torso/hip
 filtering remains steadier to prevent punches from moving the player.
 
+## Camera-to-arena alignment
+
+Your position across the **displayed camera view** now sets an absolute arena
+position. The left guide at 10% maps to the arena's left bound, center maps to
+center, and the right guide at 90% maps to the right bound. Moving beyond the
+guides keeps the target at that edge. Stops and R do not shift this mapping.
+The previews use the same mirror preference as movement; anatomical arm labels
+remain LEFT/cyan and RIGHT/orange.
+
+**Movement Response** changes catch-up acceleration and response, with the same
+maximum movement speed and destination. Opponents still block your body: a
+far-right target does not let you pass through them. The in-fight F3 overlay
+shows **Target X** and **Actual X**. Camera Debug shows these too, and marks the
+fight **PAUSED**, because opening Debug does not resume the match.
+
+Keep both hips visible. Missing/low-confidence hips freeze movement; after
+stable reacquisition, walking smoothly resumes toward the absolute target.
+
 ## Stable movement and animation
 
 The body controller uses a three-sample median, a dead zone around the latest
 held position, 80 ms movement entry, 150 ms stopping/reacquisition, and outlier
 rejection. Speed is bounded by the configured movement speed with 150 ms
-acceleration. Small corrections do not become walking steps. **R** rebases the
-anchor without changing your world position or saved calibration.
+acceleration at the default response. Small corrections do not become walking
+steps. **R** resets the filter without immediately moving the boxer or changing
+saved calibration. After stable reacquisition, the boxer smoothly follows the
+absolute camera position again.
 
 Fighter bodies cannot pass through each other; ordinary approach movement
 stops at an eight-pixel body gap. Walking reflects movement after collision
@@ -232,7 +252,8 @@ Artwork is included in Git. Downloaded models, fonts, generated sounds, local
 settings, calibration, and save slots remain ignored and are not imported
 from shared project archives.
 
-See [stable movement and poster-interface validation](docs/stable-update-validation.md) for measured
+See [camera alignment validation](docs/camera-alignment-validation.md) and the
+[earlier animation/interface validation](docs/stable-update-validation.md) for measured
 responsiveness, automated checks, replay limitations, and hardware acceptance.
 
 ## Project layout

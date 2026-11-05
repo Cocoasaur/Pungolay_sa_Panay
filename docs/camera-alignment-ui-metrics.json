@@ -1,0 +1,45 @@
+{
+  "main": {
+    "median_ms": 0.84,
+    "max_ms": 1.56
+  },
+  "settings": {
+    "median_ms": 0.24,
+    "max_ms": 3.02
+  },
+  "pause": {
+    "median_ms": 0.44,
+    "max_ms": 3.98
+  },
+  "debug": {
+    "median_ms": 0.25,
+    "max_ms": 1.12
+  },
+  "calibration": {
+    "median_ms": 0.3,
+    "max_ms": 1.81
+  },
+  "fight_draw": {
+    "median_ms": 0.38,
+    "p95_ms": 0.96,
+    "max_ms": 1.93
+  },
+  "animation_cache_bytes": 50817136,
+  "prewarm_request_ms": 0.31,
+  "during_prewarm": {
+    "samples": 218,
+    "draw_max_ms": 2.31,
+    "settings_max_ms": 1.91,
+    "sampled_cache_peak_bytes": 28553600,
+    "all_frames_ready": true
+  },
+  "camera_preview_duplicate": {
+    "median_ms": 0.43,
+    "max_ms": 4.14
+  },
+  "camera_preview_fresh": {
+    "median_ms": 1.42,
+    "max_ms": 2.85
+  },
+  "limitations": "Headless software construction/drawing; excludes display flip, vsync, input-device latency and inference. Cached page transitions should remain below 100 ms."
+}

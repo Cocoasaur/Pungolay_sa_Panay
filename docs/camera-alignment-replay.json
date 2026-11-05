@@ -1,0 +1,221 @@
+{
+  "baseline": "a1df965",
+  "duration_seconds": 26.467,
+  "samples": 794,
+  "sample_hz": 30.0,
+  "roi": [
+    64,
+    426,
+    396,
+    222
+  ],
+  "camera_inset_pose_samples": 331,
+  "shake_corrected_samples": 32,
+  "inset_locator": "static-header normalized template match >= 0.8 within +/-40 pixels",
+  "intervals": [
+    {
+      "start_s": 0.0,
+      "end_s": 1.333,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 1.333,
+      "end_s": 1.367,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 1.367,
+      "end_s": 4.767,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 4.767,
+      "end_s": 4.833,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 4.833,
+      "end_s": 8.933,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 8.933,
+      "end_s": 8.967,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 8.967,
+      "end_s": 11.933,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 11.933,
+      "end_s": 12.033,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 12.033,
+      "end_s": 14.567,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 14.567,
+      "end_s": 14.633,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 14.633,
+      "end_s": 14.8,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 14.8,
+      "end_s": 14.867,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 14.867,
+      "end_s": 15.5,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 15.5,
+      "end_s": 15.533,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 15.533,
+      "end_s": 15.867,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 15.867,
+      "end_s": 15.967,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 15.967,
+      "end_s": 18.2,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 18.2,
+      "end_s": 18.3,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 18.3,
+      "end_s": 18.633,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 18.633,
+      "end_s": 18.733,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 18.733,
+      "end_s": 18.933,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 18.933,
+      "end_s": 19.033,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 19.033,
+      "end_s": 19.167,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 19.167,
+      "end_s": 19.233,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 19.233,
+      "end_s": 19.267,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 19.267,
+      "end_s": 19.367,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 19.367,
+      "end_s": 19.467,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 19.467,
+      "end_s": 19.6,
+      "status": "REACQUIRING"
+    },
+    {
+      "start_s": 19.6,
+      "end_s": 19.667,
+      "status": "VALID UNBLOCKED"
+    },
+    {
+      "start_s": 19.667,
+      "end_s": 22.033,
+      "status": "TRACKING LOST"
+    },
+    {
+      "start_s": 22.033,
+      "end_s": 26.467,
+      "status": "NO CAMERA INSET"
+    }
+  ],
+  "status_counts": {
+    "VALID UNBLOCKED": {
+      "samples": 2,
+      "seconds": 0.067
+    },
+    "VALID BLOCKED": {
+      "samples": 0,
+      "seconds": 0.0
+    },
+    "TRACKING LOST": {
+      "samples": 626,
+      "seconds": 20.867
+    },
+    "REACQUIRING": {
+      "samples": 33,
+      "seconds": 1.1
+    },
+    "NO CAMERA INSET": {
+      "samples": 133,
+      "seconds": 4.433
+    }
+  },
+  "inference_median_ms": 30.28,
+  "inference_p95_ms": 34.12,
+  "mapping": {
+    "before": {
+      "valid_samples": 2,
+      "mean_target_error_vs_filtered_hip": 0.1246,
+      "target_min": 0.31855,
+      "target_max": 0.31855,
+      "path_pixels": 0.0,
+      "idle_walk_switches": 0
+    },
+    "after": {
+      "valid_samples": 2,
+      "mean_target_error_vs_filtered_hip": 0.00163,
+      "target_min": 0.44477,
+      "target_max": 0.44477,
+      "path_pixels": 7.56,
+      "idle_walk_switches": 2
+    }
+  },
+  "collision_fixture": {
+    "enemy_x": 820,
+    "ai_and_attacks": false,
+    "before_run": "fixed-opponent body blocking simulation",
+    "after_run": "fixed-opponent body blocking simulation"
+  },
+  "limitations": "Screen-recorded low-resolution left camera inset with baked overlays, inferred model hips, no ground truth, fixed-opponent collision fixture rather than reconstructed recorded combat. Loss/reacquisition retain confidence checks. Target error includes median/dead-zone delay and is not live tracking accuracy or latency."
+}
