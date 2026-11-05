@@ -72,28 +72,32 @@ game still runs — in keyboard mode.
 
 | Action        | Camera gesture                              | Keyboard      |
 |---------------|---------------------------------------------|---------------|
-| Move          | Step toward the camera to advance right, step back to retreat left, step sideways to reposition | A / D, ← / → |
+| Move          | Deliberate left/right hip movement; keep both hips visible | A / D, ← / → |
 | Left punch    | Punch the air with your left hand           | J             |
 | Right punch   | Punch the air with your right hand          | K             |
 | Guard         | Both hands up near your face (hold)         | Hold Space    |
 | Get up        | Both hands raised high (or Space)           | Space         |
+| Haymaker      | Hold one bent arm pulled back beside your chest for 5 seconds, then punch | Hold J/K for 5 seconds, release, then tap J/K |
+| Recenter      | Reset the body anchor without moving your boxer | R |
+| Camera preview | Collapse/expand the small preview | F4 |
 
-Controls and input mode are configurable in **SETTINGS** (also reachable with
-F1 in a fight). Press **F3** for a live debug overlay and **F11** for
+Controls and input mode are configurable in **SETTINGS** (also reachable through
+Escape → Settings during a fight). Press **F3** for a live debug overlay and **F11** for
 fullscreen. If camera movement ever feels reversed, toggle **MIRROR INPUT** in
 SETTINGS.
 
 With the OpenCV camera backend, the preview shows a yellow **PUNCH** line in
 front of your calibrated side-on stance. It follows your torso and scales with
 your camera distance. Extend either hand across it to punch, then bring that
-hand back behind the line before punching again. **PUNCH SENSITIVITY** changes
-how far you need to reach. Recalibrate after changing which direction you face.
-Hip movement controls lateral steps; depth movement uses torso size and pauses
-while hands are raised or punching, including a short recovery period.
+hand back behind the line before punching again. **PUNCH LINE DISTANCE** changes
+how far you need to reach; sensitivity remains independent. Recalibrate after changing which direction you face.
+Hip movement controls deliberate lateral steps. Camera distance never moves or resizes
+the fighter. Both pose backends keep a fixed 240-pixel body height and foreground feet.
 
 ## Fight flow
 
-- Each fight is three-knockdown: go down three times and you're out.
+- Opponents can recover twice; their third knockdown is final. Raise both hands
+  to recover your own boxer before the count expires.
 - Your opponent gets up once or twice (heavier fighters rise later), so pace
   yourself — stamina drains while guarding and punching.
 - Win a fight to unlock the next opponent and location. Progress autosaves
@@ -129,8 +133,10 @@ Keyboard Mode stay available on failure. Camera Debug returns to its caller;
 a fight behind Pause → Settings stays paused. In Debug, **R** toggles raw/filtered
 landmarks, **T** retries the camera, and **K** selects keyboard mode.
 
-Hold the charging pose (or **J/K** in keyboard mode) for **five seconds**. The HUD
-then keeps **ABILITY READY** visible. The next accepted punch from either arm
+Hold **one bent arm with its glove pulled back beside your chest** (or **J/K**
+in keyboard mode) for **five seconds**. The visible charge area shows the arm
+color, progress, remaining time, and corrective hints. The HUD then keeps
+**HAYMAKER READY — NEXT PUNCH 2×** visible. The next accepted punch from either arm
 uses **2× damage**, even if it misses. Cooldown, hit stun, or knockdown rejection
 does not consume readiness. Moving, blocking, tracking loss, and pausing retain
 it. Releasing a completed keyboard hold does not attack; tap J or K afterward.
@@ -143,6 +149,26 @@ charge, and samples over 250 ms old produce no gesture events. Confident moving
 arms use approximately 12 ms smoothing; nearly still arms use 45 ms. Torso/hip
 filtering remains steadier to prevent punches from moving the player.
 
+## Stable movement and animation
+
+The body controller uses a three-sample median, a dead zone around the latest
+held position, 80 ms movement entry, 150 ms stopping/reacquisition, and outlier
+rejection. Speed is bounded by the configured movement speed with 150 ms
+acceleration. Small corrections do not become walking steps. **R** rebases the
+anchor without changing your world position or saved calibration.
+
+Fighter bodies cannot pass through each other; ordinary approach movement
+stops at an eight-pixel body gap. Walking reflects movement after collision
+resolution. Knockdowns finish their fall and stay grounded through the count;
+get-up is a protected 0.52-second recovery state. Terminal knockouts hold the
+fallen frame. The menu and gameplay share the breathing-idle system.
+
+The small camera preview has a visible collapse button and **F4** shortcut;
+the preference is saved in Settings → Audio & Display. Frame/pose overlays
+rebuild only for fresh samples or changed display options. Animation decoding
+and prewarming run in a worker; main-thread uploads have a 2 ms work budget,
+and the animation cache is bounded to 128 MiB.
+
 ## How the vision pipeline works
 
 ```
@@ -150,7 +176,8 @@ continuous capture -> latest frame slot
    -> pose estimation (MediaPipe PoseLandmarker or OpenCV DNN fallback)
    -> timestamped matched frame + pose sample
    -> body metrics (center, shoulder width, torso height, confidence)
-   -> distance estimate (relative: close / medium / far; scales your fighter)
+   -> torso measurements for punch-boundary scale (fighter size remains fixed)
+   -> median-filtered hip movement intent: hold / move / tracking lost
    -> gesture detection
         punch  : wrist depth velocity (3D backend) or body-relative
                  boundary crossing (2D backend), plus confidence checks
@@ -173,8 +200,9 @@ deliberately gitignored — the AMD dev box pins `cv2` for determinism; on
 Windows (and other Linux machines where the MediaPipe self-test passes) leave
 it at `auto` for the faster 3D backend.
 
-Distances are *relative* estimates used for game feel (fighter scale and the
-CLOSE / MEDIUM / FAR HUD readout) — they never claim real centimeters.
+Torso measurements are relative estimates used to position the punch boundary.
+Legacy distance/smoothing settings remain readable for save compatibility but
+are hidden where they no longer affect gameplay.
 
 ## Artwork
 
@@ -189,21 +217,22 @@ the procedural renderer. No additional asset download is needed for the art.
   `player_punch_l.png` or `jessie_knockdown.png` override individual states.
   Manifest-driven action sheets animate all eight fighters; single PNGs remain
   the fallback for unavailable animations.
-- `assets/menu/menu_background.png`: full menu background. When absent,
-  `assets/menu/menu.png` can decorate the procedural menu instead.
-- `assets/pause_menu/pause_menu.png` and `assets/screens/<screen_id>.png`:
-  decoration behind live controls, text, and camera previews.
-- `assets/hud/template.png`: optional HUD artwork template. Copy it to
-  `assets/hud/hud.png` to enable the overlay. A settings template is also
-  provided at `assets/screens/templates/settings.png`; copy it to
-  `assets/screens/settings.png` to enable it.
+- `assets/menu/menu_background_clean.png`: the illustrated gym without baked
+  panels, fake window controls, or interface text. All menus render live labels
+  and measured boxing-poster controls over the gym.
+- `assets/sprites/animations.json`: frame rectangles, neutral body references,
+  foot pivots, timing, looping, and final-frame holding. All eight fighters have
+  idle, fall, and get-up clips. Daniel's idle reuses existing guard artwork with
+  a subtle runtime breathing treatment after imagegen rejected that sheet.
+- `assets/sprites/animations/generation-stable.json`: built-in imagegen prompts
+  and the exact generated-art/fallback inventory.
 
 Each artwork directory includes editing notes and, where supplied, templates.
 Artwork is included in Git. Downloaded models, fonts, generated sounds, local
 settings, calibration, and save slots remain ignored and are not imported
 from shared project archives.
 
-See [validation results](docs/responsive-update-validation.md) for measured
+See [stable movement and poster-interface validation](docs/stable-update-validation.md) for measured
 responsiveness, automated checks, replay limitations, and hardware acceptance.
 
 ## Project layout
@@ -224,7 +253,9 @@ main.py              entry point
 ## Known limitations
 
 - The camera pipeline targets a single player in the frame.
-- Body-center tracking uses smoothing; very fast dashes may lag a step behind.
+- Movement requires confidently visible hips. If hips disappear, the boxer
+  freezes and waits for stable reacquisition; the HUD asks you to reposition.
+- Recorded inset replays and synthetic tests do not verify live webcam accuracy.
 - The 2D backend uses a calibrated body-relative punch line. Keep both hips
   and the punching wrist visible, retract behind the line, then extend past it.
 

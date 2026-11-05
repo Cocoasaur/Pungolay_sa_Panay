@@ -1,0 +1,33 @@
+{
+  "main": {
+    "median_ms": 0.89,
+    "max_ms": 4.16
+  },
+  "settings": {
+    "median_ms": 0.34,
+    "max_ms": 2.18
+  },
+  "pause": {
+    "median_ms": 0.46,
+    "max_ms": 0.72
+  },
+  "debug": {
+    "median_ms": 0.27,
+    "max_ms": 0.89
+  },
+  "calibration": {
+    "median_ms": 0.29,
+    "max_ms": 1.67
+  },
+  "warm_fight_render": {
+    "median_ms": 0.42,
+    "p95_ms": 0.69,
+    "max_ms": 0.89,
+    "includes": "software draw plus cache upload; excludes display flip, vsync, camera inference"
+  },
+  "animation_cache": {
+    "resident_bytes": 100579416,
+    "total_bytes": 106869480,
+    "budget_bytes": 134217728
+  }
+}
