@@ -94,6 +94,32 @@ def main():
             }
             if cache:
                 result["animation_cache_bytes"] = cache.memory_bytes
+                from ui.animation import prewarm_pair
+                cache.cancel()
+                start=time.perf_counter()
+                prewarm_pair(("player",1),(game.progression.opponent_id,-1))
+                result["prewarm_request_ms"]=round((time.perf_counter()-start)*1000,2)
+                cold=[];navigation=[];peak=0;deadline=time.monotonic()+15
+                while cache.pending and time.monotonic()<deadline:
+                    start=time.perf_counter();cache.pump();fight.draw(game.canvas)
+                    cold.append((time.perf_counter()-start)*1000)
+                    start=time.perf_counter();SettingsScene(game).draw(game.canvas)
+                    navigation.append((time.perf_counter()-start)*1000)
+                    peak=max(peak,cache.memory_bytes);time.sleep(.001)
+                result["during_prewarm"]={"samples":len(cold),"draw_max_ms":round(max(cold,default=0),2),"settings_max_ms":round(max(navigation,default=0),2),"sampled_cache_peak_bytes":peak,"all_frames_ready":not cache.pending}
+            # Matched synthetic camera frame and landmarks; no camera is opened.
+            import numpy as np
+            from camera.pose_tracker import PoseData
+            game.settings["input_mode"]="camera"
+            game.last_camera_frame=np.zeros((360,640,3),dtype=np.uint8)
+            game.last_pose=PoseData(present=False)
+            for mode in ("duplicate","fresh"):
+                timings=[]
+                for i in range(120):
+                    game.tracking.sample_id=i if mode=="fresh" else 0
+                    start=time.perf_counter();fight.draw(game.canvas)
+                    timings.append((time.perf_counter()-start)*1000)
+                result["camera_preview_"+mode]={"median_ms":round(statistics.median(timings),2),"max_ms":round(max(timings),2)}
         finally:
             game.shutdown()
     result["limitations"] = (
