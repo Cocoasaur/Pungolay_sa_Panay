@@ -10,8 +10,15 @@ from camera.calibration import CalibrationData, Calibrator
 from camera.distance_estimator import DistanceEstimator
 from camera.gesture_detector import GestureDetector
 from camera.pose_tracker import (
-    LM_LEFT_ELBOW, LM_LEFT_HIP, LM_LEFT_SHOULDER, LM_LEFT_WRIST,
-    LM_NOSE, LM_RIGHT_ELBOW, LM_RIGHT_HIP, LM_RIGHT_SHOULDER, LM_RIGHT_WRIST,
+    LM_LEFT_ELBOW,
+    LM_LEFT_HIP,
+    LM_LEFT_SHOULDER,
+    LM_LEFT_WRIST,
+    LM_NOSE,
+    LM_RIGHT_ELBOW,
+    LM_RIGHT_HIP,
+    LM_RIGHT_SHOULDER,
+    LM_RIGHT_WRIST,
     PoseData,
 )
 from camera.punch_boundary import punch_boundary
@@ -22,23 +29,35 @@ from core.tracking import TrackingData
 def pose(left_x=0.48, right_x=0.54, wrist_y=0.38, shift=0.0, scale=1.0):
     points = {
         LM_NOSE: (0.5, 0.12),
-        LM_LEFT_SHOULDER: (0.48, 0.3), LM_RIGHT_SHOULDER: (0.52, 0.3),
-        LM_LEFT_ELBOW: (0.50, 0.42), LM_RIGHT_ELBOW: (0.55, 0.42),
-        LM_LEFT_WRIST: (left_x, wrist_y), LM_RIGHT_WRIST: (right_x, wrist_y),
-        LM_LEFT_HIP: (0.45, 0.7), LM_RIGHT_HIP: (0.55, 0.7),
+        LM_LEFT_SHOULDER: (0.48, 0.3),
+        LM_RIGHT_SHOULDER: (0.52, 0.3),
+        LM_LEFT_ELBOW: (0.50, 0.42),
+        LM_RIGHT_ELBOW: (0.55, 0.42),
+        LM_LEFT_WRIST: (left_x, wrist_y),
+        LM_RIGHT_WRIST: (right_x, wrist_y),
+        LM_LEFT_HIP: (0.45, 0.7),
+        LM_RIGHT_HIP: (0.55, 0.7),
     }
-    landmarks = {index: (0.5 + (x - 0.5) * scale + shift,
-                         0.3 + (y - 0.3) * scale, 0.0, 1.0)
-                 for index, (x, y) in points.items()}
-    return PoseData(True, landmarks=landmarks, body_confidence=1.0,
-                    shoulder_width=0.04 * scale, torso_height=0.4 * scale,
-                    body_center_x=0.5 + shift, frame_w=640, frame_h=360, is_2d=True)
+    landmarks = {
+        index: (0.5 + (x - 0.5) * scale + shift, 0.3 + (y - 0.3) * scale, 0.0, 1.0)
+        for index, (x, y) in points.items()
+    }
+    return PoseData(
+        True,
+        landmarks=landmarks,
+        body_confidence=1.0,
+        shoulder_width=0.04 * scale,
+        torso_height=0.4 * scale,
+        body_center_x=0.5 + shift,
+        frame_w=640,
+        frame_h=360,
+        is_2d=True,
+    )
 
 
 class PunchBoundaryTests(unittest.TestCase):
     def setUp(self):
-        self.calibration = CalibrationData(torso_height=0.4, arm_length=0.4,
-                                           punch_direction=1.0)
+        self.calibration = CalibrationData(torso_height=0.4, arm_length=0.4, punch_direction=1.0)
         self.detector = GestureDetector()
         self.now = 0.0
 
@@ -47,8 +66,14 @@ class PunchBoundaryTests(unittest.TestCase):
         for _ in range(frames):
             self.now += dt
             self.detector.update(data, dt, self.calibration, now=self.now)
-            events.append((self.detector.left_punch, self.detector.right_punch,
-                           self.detector.left_haymaker, self.detector.right_haymaker))
+            events.append(
+                (
+                    self.detector.left_punch,
+                    self.detector.right_punch,
+                    self.detector.left_haymaker,
+                    self.detector.right_haymaker,
+                )
+            )
         return events
 
     def test_each_hand_crosses_once_and_must_retract(self):
@@ -67,7 +92,7 @@ class PunchBoundaryTests(unittest.TestCase):
     def test_line_works_when_facing_image_left(self):
         self.calibration.punch_direction = -1.0
         self.update(pose(), 3)
-        self.assertTrue(any(event[0] for event in self.update(pose(left_x=0.20), 3)))
+        self.assertTrue(any(event[0] for event in self.update(pose(left_x=0.18), 3)))
 
     def test_line_follows_translation_and_distance_without_punches(self):
         base = punch_boundary(pose(), self.calibration)
@@ -75,14 +100,16 @@ class PunchBoundaryTests(unittest.TestCase):
         self.assertAlmostEqual(moved.x, 0.6 + (base.x - 0.5) * 1.5)
         self.update(pose(), 3)
         for shift, scale in ((0.15, 1.0), (-0.1, 0.7), (0.0, 1.5)):
-            self.assertFalse(any(any(event) for event in self.update(
-                pose(shift=shift, scale=scale), 5)))
+            self.assertFalse(
+                any(any(event) for event in self.update(pose(shift=shift, scale=scale), 5))
+            )
 
     def test_initial_extended_hand_and_raised_hand_do_not_punch(self):
         self.assertFalse(any(any(event) for event in self.update(pose(left_x=0.8), 10)))
         self.update(pose(), 3)
-        self.assertFalse(any(any(event) for event in self.update(
-            pose(left_x=0.8, wrist_y=0.05), 10)))
+        self.assertFalse(
+            any(any(event) for event in self.update(pose(left_x=0.8, wrist_y=0.05), 10))
+        )
 
     def test_lost_wrist_requires_a_new_return_behind_the_line(self):
         self.update(pose(), 3)
@@ -118,8 +145,10 @@ class PunchBoundaryTests(unittest.TestCase):
         self.update(data, 3)
         events = []
         for _ in range(10):
-            data.landmarks = {index: (x, y, z - 0.1, visibility)
-                              for index, (x, y, z, visibility) in data.landmarks.items()}
+            data.landmarks = {
+                index: (x, y, z - 0.1, visibility)
+                for index, (x, y, z, visibility) in data.landmarks.items()
+            }
             events.extend(self.update(data))
         self.assertFalse(any(any(event) for event in events))
 
@@ -150,8 +179,7 @@ class PunchBoundaryTests(unittest.TestCase):
 
 class PunchMovementTests(unittest.TestCase):
     def setUp(self):
-        self.calibration = CalibrationData(torso_height=0.4, arm_length=0.4,
-                                           punch_direction=1.0)
+        self.calibration = CalibrationData(torso_height=0.4, arm_length=0.4, punch_direction=1.0)
         game = Game.__new__(Game)
         game.settings = {"mirror_input": True, "sensitivity": 1.0, "smoothing": 0.55}
         game.gestures = GestureDetector()
@@ -161,6 +189,7 @@ class PunchMovementTests(unittest.TestCase):
         game.reset_tracking_position()
         game.tracking = TrackingData.empty()
         game._tracking_lost_time = 0.0
+        game._pose_gone = True
         self.game = game
 
     def poll(self, data, frames=1):
@@ -193,9 +222,11 @@ class PunchMovementTests(unittest.TestCase):
         turned = pose(wrist_y=0.75)
         turned.shoulder_width = 0.005
         self.poll(turned, 20)
-        self.assertAlmostEqual(self.game.tracking.horizontal_position, config.DEPTH_NEUTRAL_HP)
+        self.assertAlmostEqual(self.game.tracking.horizontal_position, 0.5)
+        for i in range(1, 11):
+            self.poll(pose(wrist_y=0.75, shift=-0.015 * i), 1)
         self.poll(pose(wrist_y=0.75, shift=-0.15), 20)
-        self.assertGreater(self.game.tracking.horizontal_position, config.DEPTH_NEUTRAL_HP + 0.1)
+        self.assertGreater(self.game.tracking.horizontal_position, 0.5 + 0.1)
 
     def test_missing_hips_hold_movement_during_punch(self):
         self.poll(pose(wrist_y=0.75), 20)
@@ -204,7 +235,7 @@ class PunchMovementTests(unittest.TestCase):
         del extended.landmarks[LM_RIGHT_HIP]
         extended.body_center_x = 0.1
         self.poll(extended, 20)
-        self.assertAlmostEqual(self.game.tracking.horizontal_position, config.DEPTH_NEUTRAL_HP)
+        self.assertAlmostEqual(self.game.tracking.horizontal_position, 0.5)
 
 
 if __name__ == "__main__":

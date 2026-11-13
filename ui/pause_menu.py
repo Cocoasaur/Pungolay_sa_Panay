@@ -1,30 +1,56 @@
 """Pause menu: an overlay pushed on top of the gameplay scene."""
 
 from __future__ import annotations
+from ui.fonts import cached_text
+
+import os
 
 import pygame
 
 import config
+from ui.assets import load_image
+from ui import theme
 from core.state_manager import Scene
 
 C = config.COLORS
 
-PAUSE_ITEMS = ["RESUME", "RETRY FIGHT", "LEVEL SELECT", "SETTINGS",
-               "MAIN MENU", "QUIT"]
+PAUSE_ITEMS = ["RESUME", "RETRY FIGHT", "LEVEL SELECT", "SETTINGS", "MAIN MENU", "QUIT"]
 
 
 class PauseMenu(Scene):
     name = "pause"
+    transparent = True
 
     def __init__(self, game) -> None:
         super().__init__(game)
         self.fonts = game.fonts
         self.selected = 0
         self._rects = []
-        self._plain = [self.fonts["medium"].render(i, True, C["text"])
-                       for i in PAUSE_ITEMS]
-        self._hover = [self.fonts["medium"].render(i, True, C["title_white"])
-                       for i in PAUSE_ITEMS]
+        self.menu_overlay = None
+        self._shade = None
+        self._fight_gestures = None
+        self._plain = [cached_text(self.fonts["medium"], i, C["text"]) for i in PAUSE_ITEMS]
+        self._hover = [cached_text(self.fonts["medium"], i, C["title_white"]) for i in PAUSE_ITEMS]
+
+    def enter(self):
+        # Practice/debug may keep reading the camera while a match is paused.
+        # Give those screens their own gesture state instead of charging the fight.
+        from camera.gesture_detector import GestureDetector
+        self._fight_gestures=self.game.gestures
+        self.game.gestures=GestureDetector(self.game.settings['punch_sensitivity'])
+        self.game.gestures.line_reach=self.game.settings.get('punch_line_reach',.75)
+
+    def exit(self):
+        if self._fight_gestures is None:return
+        self.game.gestures=self._fight_gestures
+        self._fight_gestures=None
+        self.game.gestures.charge.resume_observation()
+        self.game.gestures.set_punch_sensitivity(self.game.settings['punch_sensitivity'])
+        self.game.gestures.line_reach=self.game.settings.get('punch_line_reach',.75)
+        self.game._last_sample_time=None
+        self.game._last_sample_id=-1
+        self.game._pose_gone=True
+        self.game.movement.lose()
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN:
@@ -69,11 +95,15 @@ class PauseMenu(Scene):
 
     def draw(self, surface: pygame.Surface) -> None:
         # dim the arena underneath
-        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 170))
+        overlay = self._shade
+        if overlay is None or overlay.get_size() != surface.get_size():
+            overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 170))
+            self._shade = overlay
         surface.blit(overlay, (0, 0))
+        theme.panel(surface, pygame.Rect(400, 100, 480, 550), True)
 
-        title = self.fonts["big"].render("PAUSED", True, C["title_white"])
+        title = cached_text(self.fonts["big"], "PAUSED", C["title_white"])
         surface.blit(title, title.get_rect(center=(config.BASE_WIDTH // 2, 150)))
 
         self._rects = []
@@ -81,14 +111,8 @@ class PauseMenu(Scene):
         for i, item in enumerate(PAUSE_ITEMS):
             rect = pygame.Rect(config.BASE_WIDTH // 2 - 130, y - 12, 260, 44)
             self._rects.append(rect)
-            if i == self.selected:
-                pygame.draw.rect(surface, (52, 46, 40, 200), rect)
-                pygame.draw.rect(surface, C["accent_red"], (rect.x, rect.y, 4, 44))
-                surf = self._hover[i]
-            else:
-                surf = self._plain[i]
-            surface.blit(surf, surf.get_rect(center=(config.BASE_WIDTH // 2, y + 10)))
+            theme.button(surface, rect, item, i == self.selected, primary=i == 0)
             y += 52
 
-        hint = self.fonts["tiny"].render("ESC TO RESUME", True, C["text_faint"])
+        hint = cached_text(self.fonts["tiny"], "ESC TO RESUME", C["text_faint"])
         surface.blit(hint, hint.get_rect(center=(config.BASE_WIDTH // 2, 620)))

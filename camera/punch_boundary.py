@@ -21,7 +21,7 @@ class PunchBoundary:
 
 
 def punch_boundary(pose, calibration, sensitivity: float = 1.0,
-                   torso_height: Optional[float] = None) -> Optional[PunchBoundary]:
+                   torso_height: Optional[float] = None, reach_fraction: Optional[float] = None) -> Optional[PunchBoundary]:
     if not pose.present:
         return None
     left = pose.lm(LM_LEFT_SHOULDER)
@@ -41,7 +41,7 @@ def punch_boundary(pose, calibration, sensitivity: float = 1.0,
         direction = -1.0 if getattr(calibration, "lead_shoulder", "left") == "right" else 1.0
     center_x = (left[0] + right[0]) / 2.0
     shoulder_y = (left[1] + right[1]) / 2.0
-    reach = config.PUNCH_LINE_REACH / max(0.5, min(3.0, sensitivity))
+    reach = max(0.55, min(0.90, config.PUNCH_LINE_REACH if reach_fraction is None else reach_fraction))
     return PunchBoundary(center_x + direction * arm * reach,
                          shoulder_y - torso * 0.25,
                          shoulder_y + torso * 0.65, direction, arm)

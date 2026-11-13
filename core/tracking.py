@@ -20,19 +20,27 @@ class TrackingData:
     """
 
     present: bool = False
-    horizontal_position: float = 0.5   # 0.0 (left) .. 1.0 (right)
-    distance_ratio: float = 1.0        # relative scale vs calibration reference
-    distance_level: str = "MEDIUM"     # "CLOSE" | "MEDIUM" | "FAR"
-    left_punch: bool = False           # edge-triggered
-    right_punch: bool = False          # edge-triggered
+    movement_valid: bool = True
+    movement_response: float = 1.0  # follower response only; never changes the target
+    movement_status: str = "HOLDING"
+    charge_side: str = ""
+    charge_hint: str = "Pull one glove back beside your chest"
+    horizontal_position: float = 0.5  # 0.0 (left) .. 1.0 (right)
+    distance_ratio: float = 1.0  # relative scale vs calibration reference
+    distance_level: str = "MEDIUM"  # "CLOSE" | "MEDIUM" | "FAR"
+    left_punch: bool = False  # edge-triggered
+    right_punch: bool = False  # edge-triggered
     left_haymaker: bool = False
     right_haymaker: bool = False
+    charge_completed: bool = False  # one fresh completion event
+    sample_id: int = -1
+    sample_time: float = 0.0
     is_charging: bool = False
     is_charged: bool = False
     charge_progress: float = 0.0
     guard: bool = False
-    hands_up: bool = False             # both hands raised (knockdown get-up)
-    player_scale: float = 1.0          # fighter sprite scale from distance
+    hands_up: bool = False  # both hands raised (knockdown get-up)
+    player_scale: float = 1.0  # fighter sprite scale from distance
 
     # Debug / HUD information (never used by gameplay logic)
     body_confidence: float = 0.0

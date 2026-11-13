@@ -25,8 +25,8 @@ class Enemy:
         self.hp = self.max_hp
         self.damage = float(archetype["damage"])
         self.speed = float(archetype["speed"])
-        self.reach = float(archetype["reach"])
-        self.preferred_distance = float(archetype["preferred_distance"])
+        self.reach = float(archetype["reach"]) * config.FIGHTER_SIZE
+        self.preferred_distance = float(archetype["preferred_distance"]) * config.FIGHTER_SIZE
         self.aggression = float(archetype["aggression"])
         self.guard_chance = float(archetype["guard_chance"])
         self.retreat_chance = float(archetype["retreat_chance"])
@@ -39,10 +39,10 @@ class Enemy:
 
         # --- motion & state ---------------------------------------------
         self.x = x
-        self.facing = -1                 # toward the player (left)
+        self.facing = -1  # toward the player (left)
         self.scale = 1.0
-        self.body_w = 54
-        self.body_h = 132
+        self.body_w = config.FIGHTER_BODY_WIDTH
+        self.body_h = config.FIGHTER_BODY_HEIGHT
 
         self.state = "idle"
         self.state_timer = 0.0
@@ -52,9 +52,13 @@ class Enemy:
         self.invuln_timer = 0.0
         self.knockdown_count = 0
         self.knockdown_time = 0.0
-        self.knockdowns_total = 0        # get-ups allowed per fight: 2
+        self.knockdowns_total = 0  # get-ups allowed per fight: 2
         self.ko = False
         self.guarding = False
+        self.attack_side = "right"
+        self.action_t = 0.0
+        self.hit_pose = ("idle", 0.0)
+        self.motion_direction = 0
         self.anim_t = 0.0
 
     # ------------------------------------------------------------------
@@ -62,14 +66,21 @@ class Enemy:
     def body_hitboxes(self) -> list[Hitbox]:
         w = self.body_w * self.scale
         h = self.body_h * self.scale
-        
+
         head_h = h * 0.3
         torso_h = h * 0.7
-        
-        head = Hitbox(self.x - w / 2, config.GROUND_Y - h, w, head_h,
-                      owner="enemy", body_part="HEAD")
-        torso = Hitbox(self.x - w / 2, config.GROUND_Y - h + head_h, w, torso_h,
-                       owner="enemy", body_part="TORSO")
+
+        head = Hitbox(
+            self.x - w / 2, config.GROUND_Y - h, w, head_h, owner="enemy", body_part="HEAD"
+        )
+        torso = Hitbox(
+            self.x - w / 2,
+            config.GROUND_Y - h + head_h,
+            w,
+            torso_h,
+            owner="enemy",
+            body_part="TORSO",
+        )
         return [head, torso]
 
     @property
@@ -77,14 +88,27 @@ class Enemy:
         return self.state in ("knockdown", "ko")
 
     @property
+    def is_incapacitated(self):
+        return self.state in ("knockdown", "getup", "ko")
+
+    @property
     def is_attacking(self) -> bool:
         return self.state in ("windup", "attack")
 
     # ------------------------------------------------------------------
     def update(self, dt: float, now: float) -> None:
+        previous_state = self.state
         self.anim_t += dt
+        self.action_t += dt
         self.invuln_timer = max(0.0, self.invuln_timer - dt)
 
+        if self.state == "getup":
+            self.state_timer -= dt
+            if self.state_timer <= 0:
+                self.state = "idle"
+                self.action_t = 0
+                self.invuln_timer = 1.0
+            return
         if self.is_knocked_down:
             self._update_knockdown(dt)
             return
@@ -100,6 +124,8 @@ class Enemy:
             if self.state_timer <= 0:
                 self.state = "attack"
                 self.attack_id += 1
+                self.action_t = 0.0
+                self.state_timer = config.ENEMY_ATTACK_ACTIVE_TIME
                 self._spawn_attack_hitbox()
         elif self.state == "attack":
             self.state_timer -= dt
@@ -124,27 +150,46 @@ class Enemy:
             if self.state_timer <= 0:
                 self.state = "idle"
 
+        if self.state != previous_state:
+            self.action_t = 0.0
+
     def _spawn_attack_hitbox(self) -> None:
         hw = self.body_w * self.scale * 0.35 + self.reach * self.scale
-        hh = 30 * self.scale
+        hh = 30 * config.FIGHTER_SIZE * self.scale
         hand_y = config.GROUND_Y - self.body_h * self.scale * 0.62
         edge = self.x + self.facing * self.body_w * self.scale * 0.35
         self.active_hitbox = Hitbox(
             min(edge, edge + self.facing * hw) - hw / 2,
-            hand_y - hh / 2, hw, hh,
-            owner="enemy", attack_id=self.attack_id,
-            damage=self.damage, knockback=80)
+            hand_y - hh / 2,
+            hw,
+            hh,
+            owner="enemy",
+            attack_id=self.attack_id,
+            damage=self.damage,
+            knockback=80,
+        )
 
     # ------------------------------------------------------------------
     def take_hit(self, damage: float, knockback: float, from_direction: int) -> bool:
-        if self.is_knocked_down or self.invuln_timer > 0.0:
+        if self.is_incapacitated or self.invuln_timer > 0.0:
             return False
         if self.guarding:
-            damage *= 0.55              # enemies block less effectively
+            damage *= 0.55  # enemies block less effectively
+        self.hit_pose = (
+            self.state if self.state != "hit" else self.hit_pose[0],
+            (
+                (
+                    self.anim_t
+                    if self.state in ("idle", "walk", "approach", "retreat")
+                    else self.action_t
+                )
+                if self.state != "hit"
+                else self.hit_pose[1]
+            ),
+        )
         self.hp = max(0.0, self.hp - damage)
         # stagger resistance: heavy fighters sometimes keep swinging
-        if not (self.state in ("windup", "attack") and
-                random.random() < self.stagger_resist):
+        if not (self.state in ("windup", "attack") and random.random() < self.stagger_resist):
             self.state = "hit"
             self.state_timer = max(0.15, 0.3 - self.stagger_resist * 0.3)
             self.guarding = False
@@ -154,6 +199,8 @@ class Enemy:
 
     def force_knockdown(self) -> None:
         self.state = "knockdown"
+        self.action_t = 0.0
+        self.guarding = False
         self.knockdown_count = 0
         self.knockdown_time = 0.0
         self.knockdowns_total += 1
@@ -174,11 +221,13 @@ class Enemy:
             if self.knockdowns_total < 3:
                 getup_chance = 0.55 - self.stagger_resist * 0.5
                 if self.knockdown_count >= 3 and random.random() < getup_chance:
-                    self.state = "idle"
+                    self.state = "getup"
+                    self.state_timer = config.GETUP_TIME
+                    self.action_t = 0.0
                     self.hp = max(self.hp, self.max_hp * 0.35)
                     self.knockdown_count = 0
                     self.knockdown_time = 0.0
-                    self.invuln_timer = 1.0
+                    self.invuln_timer = config.GETUP_TIME + 1.0
 
     # ------------------------------------------------------------------
     def reset(self) -> None:

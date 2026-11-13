@@ -1,0 +1,10 @@
+{
+  "sample_hz": 30,
+  "jitter_seconds": 10,
+  "jitter_amplitude_camera_width": 0.007,
+  "max_character_drift_pixels": 0,
+  "walking_samples_during_jitter": 0,
+  "deliberate_step_camera_width": 0.04,
+  "deliberate_entry_ms": 133.33,
+  "limitations": "Synthetic hip coordinates with full confidence, not a live camera measurement."
+}

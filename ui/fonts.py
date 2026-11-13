@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from typing import Dict
+from functools import lru_cache
 
 import pygame
 
@@ -58,3 +59,8 @@ def render_spaced(text: str, font: pygame.font.Font, color, spacing: int = 6):
         out.blit(surf, (x, 0))
         x += surf.get_width() + spacing
     return out
+
+@lru_cache(maxsize=512)
+def cached_text(font, text, color):
+    """Reusable static labels; callers must not mutate the returned surface."""
+    return font.render(text, True, color)

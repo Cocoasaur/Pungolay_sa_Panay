@@ -1,0 +1,28 @@
+{
+  "main": {
+    "median_ms": 0.81,
+    "max_ms": 5.79
+  },
+  "settings": {
+    "median_ms": 0.47,
+    "max_ms": 3.12
+  },
+  "pause": {
+    "median_ms": 0.63,
+    "max_ms": 15.59
+  },
+  "debug": {
+    "median_ms": 0.34,
+    "max_ms": 9.32
+  },
+  "calibration": {
+    "median_ms": 0.28,
+    "max_ms": 8.09
+  },
+  "fight_draw": {
+    "median_ms": 0.33,
+    "p95_ms": 0.77,
+    "max_ms": 1.48
+  },
+  "limitations": "Headless software construction/drawing; excludes display flip, vsync, input-device latency and inference. Cached page transitions should remain below 100 ms."
+}

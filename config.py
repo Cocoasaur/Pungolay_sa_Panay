@@ -19,6 +19,16 @@ VERSION = "0.6.7"
 # ---------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+SPRITES_DIR = os.path.join(ASSETS_DIR, "sprites")
+LEVELS_DIR = os.path.join(ASSETS_DIR, "levels")
+HUD_DIR = os.path.join(ASSETS_DIR, "hud")
+HUD_IMAGE_PATH = os.path.join(HUD_DIR, "hud.png")
+MENU_DIR = os.path.join(ASSETS_DIR, "menu")
+MENU_IMAGE_PATH = os.path.join(MENU_DIR, "menu.png")
+MENU_BACKGROUND_PATH = os.path.join(MENU_DIR, "menu_background_clean.png")
+PAUSE_MENU_DIR = os.path.join(ASSETS_DIR, "pause_menu")
+PAUSE_MENU_IMAGE_PATH = os.path.join(PAUSE_MENU_DIR, "pause_menu.png")
+SCREENS_DIR = os.path.join(ASSETS_DIR, "screens")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 SOUNDS_DIR = os.path.join(ASSETS_DIR, "sounds")
 MODELS_DIR = os.path.join(ASSETS_DIR, "models")
@@ -37,10 +47,15 @@ FULLSCREEN_DEFAULT = False
 
 # Arena geometry (all in base-resolution pixels)
 ARENA_MARGIN = 90            # fighters cannot cross this line toward a wall
-GROUND_Y = 568               # y position of the fighters' feet
+GROUND_Y = 620               # shared foreground position of the fighters' feet
 RING_FLOOR_Y = 520           # top of the ring floor boards
 RING_POST_X = 26             # x of the corner posts (both sides)
 ROPE_YS = (352, 388, 424)    # y positions of the three ropes
+
+# Shared by the renderer, defensive hitboxes, punch reach, and AI spacing.
+FIGHTER_SIZE = 2.0
+FIGHTER_BODY_WIDTH = 54 * FIGHTER_SIZE
+FIGHTER_BODY_HEIGHT = 120 * FIGHTER_SIZE
 
 # ---------------------------------------------------------------------------
 # Color palette (charcoal / warm wood / white / red accent)
@@ -244,7 +259,7 @@ TRACKING_SMOOTHING_FACTOR = 0.3    # Exponential moving average factor (0.0 to 1
 TRACKING_CONFIDENCE_THRESHOLD = 0.6
 MAX_LANDMARK_JUMP = 0.15           # Maximum allowed landmark delta per frame (normalized)
 
-# Camera -> arena movement mapping (combined axes, see core/game.py)
+# Deprecated relative/depth mapping constants, retained for compatibility.
 # lateral and depth deltas are measured from the resting pose at fight start:
 #   hp = DEPTH_NEUTRAL_HP + lateral_delta + depth_delta * DEPTH_MOVE_GAIN
 DEPTH_MOVE_GAIN = 1.0        # how strongly depth shifts the boxer
@@ -268,7 +283,13 @@ PUNCH_ARM_EXTENDED = 0.30        # elbow-wrist distance must exceed this
 PUNCH_COOLDOWN = 0.35            # seconds between punches per hand
 PUNCH_VELOCITY_THRESHOLD = 0.8   # minimum velocity magnitude for punch detection
 PUNCH_CONFIRMATION_TIME = 0.05   # seconds a punch condition must be met to trigger
-PUNCH_LINE_REACH = 0.60          # fraction of calibrated arm length ahead of torso
+PUNCH_LINE_REACH = 0.75          # fraction of calibrated arm length ahead of torso
+ENEMY_ATTACK_ACTIVE_TIME = 0.16
+ARM_FILTER_FAST = 0.012
+ARM_FILTER_SLOW = 0.045
+POSE_SAMPLE_MAX_AGE = 0.250
+ARM_LEFT_COLOR = (0, 210, 255)       # RGB cyan
+ARM_RIGHT_COLOR = (255, 140, 0)      # RGB orange
 PUNCH_LINE_REARM = 0.15          # hand must retract this far behind the punch line
 
 BLOCK_ENTER_THRESHOLD = 0.35     # max wrist-to-shoulder normalized distance to enter block
@@ -330,15 +351,56 @@ DEFAULT_SETTINGS = {
     "sfx_volume": 0.7,
     "camera_index": 0,
     "input_mode": "camera",          # "camera" | "keyboard"
-    "sensitivity": 1.0,              # multiplies horizontal tracking speed
-    "smoothing": 0.55,               # 0..1 (higher = smoother)
-    "punch_sensitivity": 1.0,        # >1 makes punches easier to trigger
+    "sensitivity": 1.0,              # camera follower response; never changes viewport mapping
+    "smoothing": 0.55,               # deprecated; retained for saved-setting compatibility
+    "punch_sensitivity": 1.0,        # confidence (2D) / depth thresholds (3D)
+    "punch_line_reach": 0.75,        # calibrated arm fraction; independent of sensitivity
     "distance_sensitivity": 1.0,
     "fullscreen": FULLSCREEN_DEFAULT,
     "debug_mode": False,
+    "camera_preview": True,
     "mirror_input": True,            # mirror horizontal camera movement
                                      # (player faces the camera)
     "calibration": None,             # dict from camera/calibration.py
     "last_slot": 1,
     "pose_backend": "auto",          # "auto" | "mediapipe" | "cv2"
 }
+
+# Body intent is independent from fast arm filtering.
+MOVEMENT_MIN_CONFIDENCE = 0.65
+MOVEMENT_ENTER_DISTANCE = 0.018
+MOVEMENT_ENTER_TIME = 0.080
+MOVEMENT_STOP_VELOCITY = 0.015
+MOVEMENT_STOP_TIME = 0.150
+MOVEMENT_REACQUIRE_TIME = 0.150
+MOVEMENT_MAX_SAMPLE_JUMP = 0.12
+MOVEMENT_ACCEL_TIME = 0.150
+WALK_ENTER_SPEED = 18.0
+WALK_EXIT_SPEED = 7.0
+WALK_STOP_TIME = 0.150
+FIGHTER_SEPARATION = 8.0
+KNOCKDOWN_FALL_TIME = 0.50
+GETUP_TIME = 0.52
+CHARGE_ENTRY_TIME = 0.10
+CHARGE_RELEASE_GRACE = 0.15
+CHARGE_LOST_GRACE = 0.30
+ANIMATION_CACHE_BYTES = 128 * 1024 * 1024
+
+COLORS.update(
+    {
+        "charcoal_dark": (23, 21, 18),
+        "panel": (31, 28, 24),
+        "title_white": (242, 231, 211),
+        "text": (226, 215, 196),
+        "text_dim": (177, 164, 143),
+        "text_faint": (139, 126, 107),
+        "border": (100, 85, 66),
+        "accent_red": (184, 58, 43),
+        "accent_red_bright": (210, 77, 56),
+        "warm_glow": (233, 182, 111),
+    }
+)
+
+# Camera hip-center lane: full arena travel before either hip leaves the frame.
+CAMERA_MOVEMENT_LEFT = 0.10
+CAMERA_MOVEMENT_RIGHT = 0.90

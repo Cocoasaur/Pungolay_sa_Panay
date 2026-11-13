@@ -100,9 +100,10 @@ class CombatManager:
 
         push = hitbox.knockback * (0.4 if guarded else 1.0)
         target.x += attacker.facing * push
-        target.x = max(config.ARENA_MARGIN + target.body_w / 2,
+        half_width = target.body_w * target.scale / 2
+        target.x = max(config.ARENA_MARGIN + half_width,
                        min(config.BASE_WIDTH - config.ARENA_MARGIN -
-                           target.body_w / 2, target.x))
+                           half_width, target.x))
 
         # ---- feedback ---------------------------------------------------
         self.hitstop = config.HITSTOP_TIME

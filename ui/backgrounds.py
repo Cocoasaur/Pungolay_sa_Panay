@@ -12,10 +12,12 @@ Composition (following the reference description):
 from __future__ import annotations
 
 import math
+import os
 
 import pygame
 
 import config
+from ui.assets import load_image
 
 C = config.COLORS
 W, H = config.BASE_WIDTH, config.BASE_HEIGHT
@@ -23,6 +25,11 @@ W, H = config.BASE_WIDTH, config.BASE_HEIGHT
 
 def build_menu_background() -> pygame.Surface:
     """Paint the full main-menu environment (with charcoal frame)."""
+    if os.path.isfile(config.MENU_BACKGROUND_PATH):
+        image = load_image(config.MENU_BACKGROUND_PATH, (W,H), alpha=False)
+        if image is not None:
+            return image
+
     surface = pygame.Surface((W, H))
 
     # ---- charcoal outer frame ----------------------------------------
